@@ -849,11 +849,6 @@ class Bank:
             i += 1
         return True
 
-    # Проверка клиента на подозрительную операцию
-    def is_suspicious_action(self, check_action):
-        if not check_action():
-            self.CURR_CLIENT.susp_act_flg = True
-
     def transaction(self, *args):
         # Распаковка атрибутов
         acc_Id, method, *others = args
@@ -885,18 +880,21 @@ class Bank:
                     if acc.__class__.__name__ in ['SavingsAccount', 'PremiumAccount']:
                         if method in ['deposit', 'withdraw']:
                             summa = others[0]
-                            cur_method(summa)
+                            if not cur_method(summa):
+                                self.CURR_CLIENT.susp_act_flg = True
                         else:
                             print(cur_method())
                         return True
                     if acc.__class__.__name__ == 'InvestmentAccount':
                         if method in ['deposit', 'withdraw']:
                             summa = others[0]
-                            cur_method(summa)
+                            if not cur_method(summa):
+                                self.CURR_CLIENT.susp_act_flg = True                            
                         elif method in ['deposit_securities', 'withdraw_securities']:
                             security = others[0]
                             summa = others[1]
-                            cur_method(security, summa)
+                            if not cur_method(security, summa):
+                                self.CURR_CLIENT.susp_act_flg = True
                         else:
                             print(cur_method())
                         return True
@@ -1018,42 +1016,44 @@ class Bank_Client_card:
 # ================================================================ #
 # ========================= Тестирование ========================= #
 # ================================================================ #
-# # Создание Банка
-# new_bank = Bank('Новый банк')
-# # Создание клиентов
-# print(new_bank.add_client('Сидоров Сан Саныч', 'qwer', '738923 dj@jd.com', '12.03.2005', 111))
-# print(new_bank.add_client('Иванов Иван Иванович', 'asdf', '738923 dj@jd.com', '12.03.2005', 222))
-# print(new_bank.add_client('Петров Петр Петрович', 'zxcv', '738923 dj@jd.com', '12.03.2005', 333))
-# # Открытие счетов для 'qwer'
-# new_bank.open_account('SavingsAccount', 'qqq', 'qwer', 'RUB')
-# new_bank.open_account('SavingsAccount', 'www', 'qwer', 'RUB')
-# # Открытие счетов для 'asdf'.
-# new_bank.open_account('PremiumAccount', 'sss', 'asdf', 'RUB')
-# # Открытие счетов для 'zxcv'.
-# new_bank.open_account('InvestmentAccount', 'ccc', 'zxcv', 'RUB')
-# # Пароль 333. Введите неправильный пароль, чтобы вызвать заморозку клиента и проверить операции по его счетам
+# Создание Банка
+new_bank = Bank('Новый банк')
+# Создание клиентов
+print(new_bank.add_client('Сидоров Сан Саныч', 'qwer', '738923 dj@jd.com', '12.03.2005', 111))
+print(new_bank.add_client('Иванов Иван Иванович', 'asdf', '738923 dj@jd.com', '12.03.2005', 222))
+print(new_bank.add_client('Петров Петр Петрович', 'zxcv', '738923 dj@jd.com', '12.03.2005', 333))
+# Открытие счетов для 'qwer'
+new_bank.open_account('SavingsAccount', 'qqq', 'qwer', 'RUB')
+new_bank.open_account('SavingsAccount', 'www', 'qwer', 'RUB')
+# Открытие счетов для 'asdf'.
+new_bank.open_account('PremiumAccount', 'sss', 'asdf', 'RUB')
+# Открытие счетов для 'zxcv'.
+new_bank.open_account('InvestmentAccount', 'ccc', 'zxcv', 'RUB')
+# Пароль 333. Введите неправильный пароль, чтобы вызвать заморозку клиента и проверить операции по его счетам
+new_bank.transaction('qqq', 'deposit', 20000)
+new_bank.transaction('qqq', 'deposit', 20000)
+new_bank.transaction('www', 'deposit', 20000)
+# Разморозка клиента qwer - он станет активным. Проверка операции со счетами
+new_bank.unfreeze_client('qwer')
+new_bank.transaction('qqq', 'deposit', 20000)
+new_bank.transaction('www', 'deposit', 20000)
+# Вызов заморозки счета qqq и проверка операции со счетами
+new_bank.freeze_account('qqq')
 # new_bank.transaction('qqq', 'deposit', 20000)
-# new_bank.transaction('qqq', 'deposit', 20000)
-# new_bank.transaction('www', 'deposit', 20000)
-# # Разморозка клиента qwer - он станет активным. Проверка операции со счетами
-# new_bank.unfreeze_client('qwer')
-# new_bank.transaction('qqq', 'deposit', 20000)
-# new_bank.transaction('www', 'deposit', 20000)
-# # Вызов заморозки счета qqq и проверка операции со счетами
-# new_bank.freeze_account('qqq')
-# # new_bank.transaction('qqq', 'deposit', 20000)
-# # Закомментируйте предыдущую строку "new_bank.transaction('qqq', 'deposit', 20000) ". Проверка разморозки счета
-# new_bank.unfreeze_account('qqq')
-# new_bank.transaction('qqq', 'deposit', 20000)
-# # Закрытие счета 'qqq'. Дальнейшие операции по нему невозможны.
-# new_bank.close_account('qqq')
-# new_bank.transaction('www', 'deposit', 20000)
-# # Закрытие клиента 'qwer'. Дальнейшие операции по его счетам qqq и www невозможны.
-# new_bank.close_client('qwer')
-# new_bank.transaction('www', 'deposit', 20000)
-# # Заморозка счета через подозрительные действия SUSPICIOUS_SUM. Пароль 222
-# new_bank.transaction('sss', 'deposit', 3000000)
-# # new_bank.transaction('sss', 'deposit', 3000)
+# Закомментируйте предыдущую строку "new_bank.transaction('qqq', 'deposit', 20000) ". Проверка разморозки счета
+new_bank.unfreeze_account('qqq')
+new_bank.transaction('qqq', 'deposit', 20000)
+# Закрытие счета 'qqq'. Дальнейшие операции по нему невозможны.
+new_bank.close_account('qqq')
+new_bank.transaction('www', 'deposit', 20000)
+# Закрытие клиента 'qwer'. Дальнейшие операции по его счетам qqq и www невозможны.
+new_bank.close_client('qwer')
+new_bank.transaction('www', 'deposit', 20000)
+# Заморозка счета через подозрительные действия SUSPICIOUS_SUM. Пароль 222
+new_bank.transaction('sss', 'deposit', 3000000)
+new_bank.show_all_clients()
+
+# new_bank.transaction('sss', 'deposit', 3000)
 # # Закомментируйте строку "new_bank.transaction('sss', 'deposit', 3000)". Проверка разморозки счета
 # new_bank.unfreeze_account('sss')
 # new_bank.transaction('sss', 'deposit', 20000)
