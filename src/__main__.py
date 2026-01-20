@@ -581,7 +581,7 @@ class Bank:
     # Список констант, которые удобно менять в одном месте, а не искать по всему коду
     CLIENT_DB = []  # список клиентов (экземпляров класса Client)
     ACCOUNT_DB = []  # список счетов всех клиентов
-    # LINK_CLIENT_ACCOUNT = []  # линк для связи клиентов и счетов
+    AUTH_TRIES = 3
     CURR_CLIENT = ''  # текущий клиент, нужен для авторизации
     ACCOUNT_TYPE = {'SavingsAccount': SavingsAccount
         , 'PremiumAccount': PremiumAccount
@@ -761,7 +761,9 @@ class Bank:
             print(f"Номер счета не найден! \n")
 
     # Аутентификация клиента (3 попытки)
-    def authenticate_client(self, name):
+    def authenticate_client(self, name, entered_pswrd:str = None):
+        if not entered_pswrd:
+            entered_pswrd = ''
         # Поиск клиента в системе банка
         for search_client in self.CLIENT_DB:
             if search_client.client.client_id == name:
@@ -772,17 +774,17 @@ class Bank:
                     return False
                 # Получаем пароль для проверки
                 pswrd = search_client.client_password
-                for i in range(3):
-                    entered_pswrd = input(f'Попытка № {i + 1} из 3. Введите пароль от пользователя {name}. \n')
-                    if str(entered_pswrd) == str(pswrd):
-                        print(f"Авторизация прошла успешно! \n")
-                        self.CURR_CLIENT = search_client
-                        return True
-                    else:
-                        continue
+                if str(entered_pswrd) == str(pswrd):
+                    print(f"Авторизация прошла успешно! \n")
+                    self.CURR_CLIENT = search_client
+                    self.AUTH_TRIES = 3
+                    return True
                 else:
-                    search_client.client.client_status = 'замороженный'
-                    print(f"Попытки кончились. Клиент заморожен.")
+                    self.AUTH_TRIES -= 1
+                    if self.AUTH_TRIES == 0:
+                        search_client.client.client_status = 'замороженный'
+                        print(f"Попытки кончились. Клиент заморожен.")
+                    print(f"Авторизация не прошла! \n")
                     return False
 
     # Поиск счета по Id
@@ -828,7 +830,7 @@ class Bank:
             buf = self.get_balance(client_id)
             if buf is not None:
                 print(f'Баланс клиента "{client_id}" равен {buf}. \n')
-                return summa
+                return buf
         return None
 
     # Вывод всех клиентов и баланса их счета от богатых к бедным
@@ -848,6 +850,11 @@ class Bank:
             print(f'{i}) {full_name}, баланс: {value}.')
             i += 1
         return True
+
+    # Проверка клиента на подозрительную операцию
+    def is_suspicious_action(self, check_action):
+        if not check_action():
+            self.CURR_CLIENT.susp_act_flg = True
 
     def transaction(self, *args):
         # Распаковка атрибутов
@@ -889,7 +896,7 @@ class Bank:
                         if method in ['deposit', 'withdraw']:
                             summa = others[0]
                             if not cur_method(summa):
-                                self.CURR_CLIENT.susp_act_flg = True                            
+                                self.CURR_CLIENT.susp_act_flg = True
                         elif method in ['deposit_securities', 'withdraw_securities']:
                             security = others[0]
                             summa = others[1]
@@ -904,13 +911,6 @@ class Bank:
             else:
                 continue
         return False
-            # Если нет, то мы должны найти клиента и провести его аутентификацию
-        # else:
-        #     for search_client in self.CLIENT_DB:
-        #         for search_acc in search_client.accounts:
-        #             if search_acc.Id == acc_Id:
-        #                 if self.authenticate_client(search_client.client.client_id):
-        #                     pass
 
     def __str__(self):
         print(f'Тип: Bank.')
@@ -927,6 +927,8 @@ class Bank:
             else:
                 for i in range(len(search_client.accounts)):
                     print(f'    {i + 1}. {search_client.accounts[i].Id}')
+        else:
+            print('\n')
 
 
 class Client:
