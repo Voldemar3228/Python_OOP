@@ -1,5 +1,5 @@
 # src/__init__.py
-from .bank import Bank
+from .bank import Bank, TransactionProcessor
 from .errors import (
     AccountFrozenError
     , AccountClosedError
@@ -9,6 +9,7 @@ from .errors import (
 
 __all__ = [
     "Bank"
+    , "TransactionProcessor"
     , "AccountFrozenError"
     , "AccountClosedError"
     , "InvalidOperationError"
