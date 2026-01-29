@@ -22,24 +22,51 @@ from bank import (
 )
 
 
-def test_account_SavingsAccount():
+def test_account_InvestmentAccount():
     # Создание Банка
     new_bank = Bank('Новый банк')
     # Создание клиентов
     print(new_bank.add_client('Сидоров Сан Саныч', 'qwer', '738923 dj@jd.com', '12.03.2005', 111))
-    # Открытие счетов для 'qwer'
-    new_bank.open_account('SavingsAccount', 'qqq', 'qwer', 'RUB')
-    new_bank.open_account('SavingsAccount', 'www', 'qwer', 'RUB')
-    # Операции со счетом SavingsAccount
-    new_bank.transaction('qqq', 'deposit', 20000)
-    new_bank.transaction('qqq', '__str__', 20000)
-    new_bank.transaction('qqq', 'withdraw', 10000)
-    new_bank.transaction('qqq', '__str__')
-    new_bank.transaction('qqq', 'apply_monthly_interest')
-    new_bank.transaction('qqq', 'get_account_info')
+    # Создание InvestmentAccount
+    print(new_bank.open_account('InvestmentAccount', 'rrr', 'qwer', 'RUB'))
+    # Операции с InvestmentAccount
+    new_bank.transaction('rrr', '__str__')
+    # пополнение счета
+    new_bank.transaction('rrr', 'deposit', 200000)
+    new_bank.transaction('rrr', '__str__')
+    # покупка бумаг
+    new_bank.transaction('rrr', 'deposit_securities', 'stocks', 20000)
+    new_bank.transaction('rrr', 'deposit_securities', 'bonds', 20000)
+    new_bank.transaction('rrr', 'deposit_securities', 'etf', 20000)
+    new_bank.transaction('rrr', '__str__')
+    # продажа бумаг
+    new_bank.transaction('rrr', 'withdraw_securities', 'stocks', 10000)
+    new_bank.transaction('rrr', 'withdraw_securities', 'bonds', 20000)
+    new_bank.transaction('rrr', 'withdraw_securities', 'etf', 10000)
+    new_bank.transaction('rrr', '__str__')
+    # снятие со счета
+    new_bank.transaction('rrr', 'withdraw', 50000)
+    new_bank.transaction('rrr', '__str__')
+    # Рост ценных бумаг
+    new_bank.transaction('rrr', 'project_yearly_growth')
+    new_bank.transaction('rrr', '__str__')
+    # # Недостаточно средств
+    # new_bank.transaction('rrr', 'deposit_securities', 'stocks', 200000)
+    # new_bank.transaction('rrr', '__str__')
+    # # Неправильные бумаги
+    # new_bank.transaction('rrr', 'deposit_securities', 'stocksss', 100000)
+    # new_bank.transaction('rrr', '__str__')
+    # # Продажа несуществующей бумаги
+    # new_bank.transaction('rrr', 'withdraw_securities', 'etfqwe', 10000)
+    # new_bank.transaction('rrr', '__str__')
+    # # Вывод недоступной суммы (заморозка аккаунта)
+    # new_bank.transaction('rrr', 'withdraw', 5000000)
+    # new_bank.transaction('rrr', '__str__')
+    # new_bank.transaction('rrr', 'withdraw', 5000)
+    # new_bank.transaction('rrr', '__str__')
 
 
-test_account_SavingsAccount()
+test_account_InvestmentAccount()
 
 # ================================================================ #
 # ========================= Тестирование ========================= #
