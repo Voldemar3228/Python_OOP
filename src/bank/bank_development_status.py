@@ -10,9 +10,14 @@ from abc import ABC, abstractmethod  # Импортируем необходим
 # =====================================================  Day 1  ====================================================== #
 # ==================================================================================================================== #
 # Ошибка: нельзя снять или пополнить счет, у которого статус "замороженный"
-class AccountFrozenError(Exception):
+class AccountFrozenError:
     def __init__(self, current_status):
         self.current_status = current_status
+
+    def get_reason(self):
+        current_reason = f"""Невозможно провести операцию.\n
+                            Статус счета: {self.current_status}"""
+        return current_reason
 
     def __str__(self):
         return f'Невозможно провести операцию.\n' \
@@ -20,9 +25,15 @@ class AccountFrozenError(Exception):
 
 
 # Ошибка: нельзя снять или пополнить счет, у которого статус "закрытый"
-class AccountClosedError(Exception):
+# class AccountClosedError(Exception):
+class AccountClosedError:
     def __init__(self, current_status):
         self.current_status = current_status
+
+    def get_reason(self):
+        current_reason = f"""Невозможно провести операцию.\n
+                            Статус счета: {self.current_status}"""
+        return current_reason
 
     def __str__(self):
         return f'Невозможно провести операцию.\n' \
@@ -30,9 +41,16 @@ class AccountClosedError(Exception):
 
 
 # Ошибка недопустимости операции: когда не можем выполнить операции снятия и пополнения: неправильные типы данных
-class InvalidOperationError(Exception):
+# class InvalidOperationError(Exception):
+class InvalidOperationError:
     def __init__(self, amount):
         self.amount = amount
+
+    def get_reason(self):
+        current_reason = f"""Невозможно выполнить операцию: неправильный тип данных.\n
+                                Текущий тип данных у {self.amount}: {type(self.amount)}.\n'
+                                Требуемый тип данных: {type(1)}.\n"""
+        return current_reason
 
     def __str__(self):
         return f'Невозможно выполнить операцию: неправильный тип данных.\n' \
@@ -41,14 +59,21 @@ class InvalidOperationError(Exception):
 
 
 # Ошибка недостаточности средств - если хотим снять больше того, что есть на счете
-class InsufficientFundsError(Exception):
+# class InsufficientFundsError(Exception):
+class InsufficientFundsError:
     def __init__(self, withdraw_sum, balance, curr):
         self.withdraw_sum = withdraw_sum
         self.balance = balance
         self.curr = curr
 
+    def get_reason(self):
+        current_reason = f"""Недопустимое значение. 
+                            Вы не можете снять {self.withdraw_sum} {self.curr}, 
+                            так как сумма больше, чем есть сейчас на счету ({self.balance} {self.curr})."""
+        return current_reason
+
     def __str__(self):
-        return f'Недопустимое значение.\n' \
+        return f'Недопустимое значение.' \
                f'Вы не можете снять {self.withdraw_sum} {self.curr}, ' \
                f'так как сумма больше, чем есть сейчас на счету ({self.balance} {self.curr}).'
 
@@ -118,8 +143,8 @@ class BankAccount(AbstractAccount, ABC):
     def secure_balance(self, value):
         if not str(value).strip():
             raise ValueError('secure_balance should be not null')
-        if value < 0:
-            raise ValueError("secure_balance can't be negative")
+        # if value < 0:
+        #     raise ValueError("secure_balance can't be negative")
         self._secure_balance = value
 
     # Валидация status
@@ -148,47 +173,44 @@ class BankAccount(AbstractAccount, ABC):
             raise ValueError('wrong currency')
         self._currency = value
 
-    # def validate_operation(self, amount, oper_type):
-    #     if type(amount) is not int:
-    #         raise InvalidOperationError(amount)
-    #     if self.status not in self.STATUS:
-    #         print(f'Статусы могут принимать следующие значения: {self.STATUS}')
-    #         raise ValueError(f'Запрет выполнения операции')
-    #     if self.status in ['замороженный', 'Замороженный']:
-    #         raise AccountFrozenError(self.status)
-    #     if self.status in ['закрытый', 'Закрытый']:
-    #         raise AccountClosedError(self.status)
-    #     if oper_type == 'withdraw' and amount > self.secure_balance:
-    #         raise InsufficientFundsError(amount, self.secure_balance, self.currency)
-
-    def validate_operation(self, amount, oper_type):
+    # Успех - True, провал - False + причина в reason
+    def validate_operation(self, amount=None, oper_type=None, acc=None):
         if type(amount) is not int:
-            raise InvalidOperationError(amount)
+            error = InvalidOperationError(amount)
+            reason = error.get_reason()
+            return False, reason
         if self.status not in self.STATUS:
-            print(f'Статусы могут принимать следующие значения: {self.STATUS}')
-            raise ValueError(f'Запрет выполнения операции')
+            reason = f"""Запрет выполнения операции. Статусы могут принимать следующие значения: {self.STATUS}"""
+            return False, reason
         if self.status in ['замороженный', 'Замороженный']:
-            raise AccountFrozenError(self.status)
+            error = AccountFrozenError(self.status)
+            reason = error.get_reason()
+            return False, reason
         if self.status in ['закрытый', 'Закрытый']:
-            raise AccountClosedError(self.status)
-        if oper_type == 'withdraw' and amount > self.secure_balance:
-            return f"Вы не можете снять {amount} {self.currency}, так как на счету только {self.secure_balance}"
-            # raise InsufficientFundsError(amount, self.secure_balance, self.currency)
-            # return False
-        return 'Done'
-
-    def validate_operation_for_premium(self, amount):
-        if type(amount) is not int:
-            return f'Должен быть числовой тип!'
-            # raise InvalidOperationError(amount)
-        if self.status not in self.STATUS:
-            print(f'Статусы могут принимать следующие значения: {self.STATUS}')
-            raise ValueError(f'Запрет выполнения операции')
-        if self.status in ['замороженный', 'Замороженный']:
-            raise AccountFrozenError(self.status)
-        if self.status in ['закрытый', 'Закрытый']:
-            raise AccountClosedError(self.status)
-        return 'Done'
+            error = AccountClosedError(self.status)
+            reason = error.get_reason()
+            return False, reason
+        # если у нас не премиальный клиент, проверяем отрицательный баланс
+        if acc != 'premium':
+            if oper_type == 'withdraw' and amount > self.secure_balance:
+                error = InsufficientFundsError(amount, self.secure_balance, self.currency)
+                reason = error.get_reason()
+                return False, reason
+        flg, msg = self.is_suspicious_actions(amount)
+        # Проверка на подозрительные действия
+        if flg is True:
+            reason = f"Подозрительная активность. \n" + str(msg) + f"""В целях безопасности счет {self.Id} заморожен. 
+                        Обратитесь в Банк за разморозкой. """  # \n
+            self.status = 'замороженный'
+            return False, reason  # операция не выполнилась, добавить флаг клиенту "Подозрительная активность"
+        # Проверка на запрещенные действия
+        flg, msg = self.is_forbidden_actions()
+        if flg is True:
+            reason = f"Подозрительная активность. \n" + str(msg) + f"""В целях безопасности счет {self.Id} заморожен. 
+                                    Обратитесь в Банк за разморозкой. """  # \n
+            self.status = 'замороженный'
+            return False, reason  # операция не выполнилась, добавить флаг клиенту "Подозрительная активность"
+        return True, None
 
     # Проверка операции на подозрительные действия
     # Возвращаем True, если операция подозрительная, иначе - False
@@ -196,81 +218,62 @@ class BankAccount(AbstractAccount, ABC):
         check_time = datetime.now().time()
         # Проверка на слишком большую сумму
         if check_sum >= self.SUSPICIOUS_SUM:
-            print(f"Используется подозрительная сумма >= {check_sum}.")
-            return True
+            reason = f"Используется подозрительная сумма >= {check_sum}."
+            return True, reason
         # Проверка на необычное время
         #   Если период включает в себя полночь
         if self.SUSPICIOUS_TIME_START > self.SUSPICIOUS_TIME_END:
             if check_time >= self.SUSPICIOUS_TIME_START or check_time <= self.SUSPICIOUS_TIME_END:
-                print(f"Операция проводится в подозрительное время ({check_time}) ", end='')
-                print(f"c {self.SUSPICIOUS_TIME_START} до 00:00 или с 00:00 до {self.SUSPICIOUS_TIME_END}.")
-                return True
+                reason = f"""Операция проводится в подозрительное время ({check_time}) 
+                            c {self.SUSPICIOUS_TIME_START} до 00:00 или с 00:00 до {self.SUSPICIOUS_TIME_END}."""
+                return True, reason
         else:
             if self.SUSPICIOUS_TIME_START <= check_time <= self.SUSPICIOUS_TIME_END:
-                print(f"Операция проводится в подозрительное время ({check_time}) ", end='')
-                print(f"c {self.SUSPICIOUS_TIME_START} до {self.SUSPICIOUS_TIME_END}.")
-                return True
-        return False
+                reason = f"""Операция проводится в подозрительное время ({check_time}) 
+                            c {self.SUSPICIOUS_TIME_START} до {self.SUSPICIOUS_TIME_END}."""
+                return True, reason
+        return False, None
 
-        # Проверка на запрет операции
-        # Возвращаем True, если запрещено, иначе - False
-
+    # Проверка на запрет операции
+    # Возвращаем True, если запрещено, иначе - False
     def is_forbidden_actions(self):
         check_time = datetime.now().time()
         #   Если период включает в себя полночь
         if self.FORBIDDEN_TIME_START > self.FORBIDDEN_TIME_END:
             if check_time >= self.FORBIDDEN_TIME_START or check_time <= self.FORBIDDEN_TIME_END:
-                print(f"Операция проводится в запрещенное время ({check_time}) ", end='')
-                print(f"c {self.FORBIDDEN_TIME_START} до 00:00 или с 00:00 до {self.FORBIDDEN_TIME_END}.")
-                return True
+                reason = f"""Операция проводится в запрещенное время ({check_time})  
+                            c {self.FORBIDDEN_TIME_START} до 00:00 или с 00:00 до {self.FORBIDDEN_TIME_END}."""
+                return True, reason
         else:
             if self.FORBIDDEN_TIME_START <= check_time <= self.FORBIDDEN_TIME_END:
                 print(f"Операция проводится в запрещенное время ({check_time}) ", end='')
                 print(f"c {self.FORBIDDEN_TIME_START} до {self.FORBIDDEN_TIME_END}.")
-                return True
-        return False
-
-    # def deposit(self, amount):
-    #     if self.is_suspicious_actions(amount) | self.is_forbidden_actions():
-    #         print(f"В целях безопасности счет {self.Id} заморожен. Обратитесь в Банк за разморозкой. \n")
-    #         self.status = 'замороженный'
-    #         return False  # операция не выполнилась, добавить флаг клиенту "Подозрительная активность"
-    #     self.validate_operation(amount, 'deposit')
-    #     self.secure_balance += amount
-    #     # print(f"Средства ({amount} {self.currency}) успешно внесены на счет\n")
-    #     return True  # операция выполнилась, "Подозрительной активности" у клиента нет
+                reason = f"""Операция проводится в запрещенное время ({check_time})   
+                            c {self.FORBIDDEN_TIME_START} до {self.FORBIDDEN_TIME_END}."""
+                return True, reason
+        return False, None
 
     def deposit(self, amount):
-        if self.is_suspicious_actions(amount) | self.is_forbidden_actions():
-            print(f"В целях безопасности счет {self.Id} заморожен. Обратитесь в Банк за разморозкой. \n")
-            self.status = 'замороженный'
-            return False  # операция не выполнилась, добавить флаг клиенту "Подозрительная активность"
-        msg = self.validate_operation(amount, 'deposit')
-        if msg == 'Done':
+        # ============= new version =============
+        # Проверка перед выполнением операции
+        val_flg, val_msg = self.validate_operation(amount, 'deposit')
+        if val_flg is False:
+            return False, val_msg
+        else:
+            # операция выполнилась, "Подозрительной активности" у клиента нет
             self.secure_balance += amount
-        return msg
+            # val_msg = f"Средства ({amount} {self.currency}) успешно внесены на счет\n"
+        return val_flg, val_msg
 
-
-    # def withdraw(self, amount):
-    #     if self.is_suspicious_actions(amount) | self.is_forbidden_actions():
-    #         print(f"В целях безопасности счет {self.Id} заморожен. Обратитесь в Банк за разморозкой. \n")
-    #         self.status = 'замороженный'
-    #         return False  # операция не выполнилась, добавить флаг клиенту "Подозрительная активность"
-    #     self.validate_operation(amount, 'withdraw')
-    #     self.secure_balance -= amount
-    #     # print(f"Средства ({amount} {self.currency}) успешно списаны со счета\n")
-    #     return True  # операция выполнилась, "Подозрительной активности" у клиента нет
-
-    def withdraw(self, amount):
-        if self.is_suspicious_actions(amount) | self.is_forbidden_actions():
-            print(f"В целях безопасности счет {self.Id} заморожен. Обратитесь в Банк за разморозкой. \n")
-            self.status = 'замороженный'
-            return False  # операция не выполнилась, добавить флаг клиенту "Подозрительная активность"
-        msg = self.validate_operation(amount, 'withdraw')
-        if msg == 'Done':
+    def withdraw(self, amount, acc=None):
+        # ============= new version =============
+        val_flg, val_msg = self.validate_operation(amount, 'withdraw', acc)
+        if val_flg is False:
+            return False, val_msg
+        else:
+            # операция выполнилась, "Подозрительной активности" у клиента нет
             self.secure_balance -= amount
-            # print(f"Средства ({amount} {self.currency}) успешно списаны со счета\n")
-        return msg
+        return val_flg, val_msg
 
     def get_account_info(self):
         return f'Уникальный идентификатор счёта: {self.Id}. \n' \
@@ -319,57 +322,28 @@ class SavingsAccount(BankAccount):
             raise ValueError("monthly_rate have to be between 0 and 1")
         self._monthly_rate = value
 
-    # def deposit(self, amount):
-    #     # super().deposit(amount)
-    #     # return f'Средства ({amount} {self.currency}) успешно внесены на счет\n'
-    #     if super().deposit(amount):
-    #         # Если счет пополняется впервые, пересчитывается минимальный остаток
-    #         if not self.first_operation:
-    #             self.min_balance = self.secure_balance
-    #             self.first_operation = True
-    #         print(f'Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}".\n')
-    #         return True  # операция выполнилась успешно
-    #     # return super().deposit(amount)
-    #     self.status = 'замороженный'
-    #     return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
-
     def deposit(self, amount):
-        # super().deposit(amount)
-        # return f'Средства ({amount} {self.currency}) успешно внесены на счет\n'
-        msg = super().deposit(amount)
-        if msg == 'Done':
+        # check_msg = f'Подозрительная активность.'
+        flg, msg = super().deposit(amount)
+        if flg is True:
             # Если счет пополняется впервые, пересчитывается минимальный остаток
             if not self.first_operation:
                 self.min_balance = self.secure_balance
                 self.first_operation = True
-            print(f'Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}".\n')
-            return msg  # операция выполнилась успешно
-        else:
-            return msg
-        # self.status = 'замороженный'
-        # return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
-
-    # def withdraw(self, amount):
-    #     if super().withdraw(amount):
-    #         self.min_balance = min(self.secure_balance, self.min_balance)
-    #         # return f'Средства ({amount} {self.currency}) успешно списаны со счета\n'
-    #         print(f'Средства ({amount} {self.currency}) успешно списаны со счета "{self.Id}".\n')
-    #         return True  # операция выполнилась успешно
-    #     # return super().withdraw(amount)
-    #     self.status = 'замороженный'
-    #     return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия"
+            msg = f'Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}".'  # \n
+        return flg, msg
 
     def withdraw(self, amount):
-        msg = super().withdraw(amount)
-        if msg == 'Done':
+        check_msg = f'Подозрительная активность.'
+        flg, msg = super().withdraw(amount)
+        # if super().withdraw(amount):
+        if flg is True:
             self.min_balance = min(self.secure_balance, self.min_balance)
-            # return f'Средства ({amount} {self.currency}) успешно списаны со счета\n'
-            print(f'Средства ({amount} {self.currency}) успешно списаны со счета "{self.Id}".\n')
-            return msg  # операция выполнилась успешно
-        else:
-            return msg
-        # self.status = 'замороженный'
-        # return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия"
+            msg = f'Средства ({amount} {self.currency}) успешно списаны со счета "{self.Id}".'  # \n
+            # return True, msg  # операция выполнилась успешно
+        # else:
+        #     self.status = 'замороженный'  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия"
+        return flg, msg
 
     def apply_monthly_interest(self):
         buf = self.min_balance * self.monthly_rate
@@ -390,7 +364,7 @@ class SavingsAccount(BankAccount):
 
     def __str__(self):
         super().__str__()
-        return f'Тип счёта: BankAccount. \n' \
+        return f'Тип счёта: SavingsAccount. \n' \
                f'Владелец: {self.person}. \n' \
                f'Номер счета: {self.id_num}. \n' \
                f'Статус счёта: {self.status}. \n' \
@@ -444,8 +418,10 @@ class PremiumAccount(BankAccount):
         self._fee = value
 
     def deposit(self, amount):
-        # super().deposit(amount)
-        if super().deposit(amount):
+        check_msg = f'Подозрительная активность.'
+        flg, msg = super().deposit(amount)
+        # if super().deposit(amount):
+        if flg is True:
             # Проверяем, был ли до этого долг
             if self.overdraft_limit != self.overdraft_balance:
                 self.overdraft_balance += amount
@@ -453,61 +429,53 @@ class PremiumAccount(BankAccount):
                 if self.overdraft_balance > self.overdraft_limit:
                     self.secure_balance = self.overdraft_balance - self.overdraft_limit
                     self.overdraft_balance = self.overdraft_limit
-                    # return f'Долг закрыт. Средства ({amount} {self.currency}) успешно внесены на счет. \n'
-                    print(f'Долг закрыт. Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}". \n')
-                    return True  # операция выполнилась успешно
+                    msg = f'Долг закрыт. Средства ({amount} {self.currency}) успешно внесены на счет. '  # \n
+                    # print(f'Долг закрыт. Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}". \n')
+                    # return True, msg  # операция выполнилась успешно
                 else:
                     self.secure_balance = 0
-                    # return f'Средства ({amount} {self.currency}) успешно внесены в уплату долга. \n'
-                    print(f'Средства ({amount} {self.currency}) успешно внесены в уплату долга. \n')
-                    return True  # операция выполнилась успешно
+                    msg = f'Средства ({amount} {self.currency}) успешно внесены в уплату долга. '  # \n
+                    # print(f'Средства ({amount} {self.currency}) успешно внесены в уплату долга. \n')
+                    # return True, msg  # операция выполнилась успешно
             else:
-                # return f'Средства ({amount} {self.currency}) успешно внесены на счет. \n'
-                print(f'Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}". \n')
-                return True  # операция выполнилась успешно
-        self.status = 'замороженный'
-        return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
+                msg = f'Средства ({amount} {self.currency}) успешно внесены на счет. '  # \n
+                # print(f'Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}". \n')
+                # return True, msg  # операция выполнилась успешно
+        # else:
+        #     self.status = 'замороженный'  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
+        return flg, msg
 
     def withdraw(self, amount):
-        # if type(amount) is not int:
-        #     raise InvalidOperationError(amount)
-        message = self.validate_operation_for_premium(amount)
-        if message == 'Done':
-            if not (self.is_suspicious_actions(amount) | self.is_forbidden_actions()):
-                current_balance = self.secure_balance - amount
-                # После снятия долга не образовалось
-                if current_balance >= 0:
-                    self.secure_balance = current_balance
+        check_msg = f'Подозрительная активность.'
+        flg, msg = super().withdraw(amount, 'premium')
+        if flg is True:
+            current_balance = self.secure_balance
+            # После снятия долга не образовалось
+            if current_balance >= 0:
+                self.secure_balance = current_balance
+                msg = f'Средства ({amount} {self.currency}) успешно списаны со счета'  # \n
+            else:
+                # До этой операции долга не было
+                if self.overdraft_balance == self.overdraft_limit:
+                    # Процент считается на ту сумму, которая занимается из лимита
+                    curr_fee = abs(current_balance) * self.fee
+                # До этой операции долг уже был
                 else:
-                    # До этой операции долга не было
-                    if self.overdraft_balance == self.overdraft_limit:
-                        # Процент считается на ту сумму, которая занимается из лимита
-                        curr_fee = abs(current_balance) * self.fee
-                    # До этой операции долг уже был
-                    else:
-                        # Процент начисляется на всю снимаемую сумму (т.к. она вся идет в заем)
-                        curr_fee = amount * self.fee
-                    # Добавляем процент к снимаемой сумме
-                    current_balance -= curr_fee
-                    # Проверка лимита заемных средств
-                    if abs(current_balance) <= self.overdraft_balance:
-                        self.overdraft_balance += current_balance
-                        self.secure_balance = 0
-                        # return f'Средства ({amount} {self.currency}) успешно списаны со счета\n' \
-                        #     f'с учетом комиссии ({curr_fee} {self.currency})\n'
-                        print(f'Средства ({amount} {self.currency}) успешно списаны со счета "{self.Id}" \n', end='')
-                        print(f'с учетом комиссии ({curr_fee} {self.currency})\n')
-                        return True  # операция выполнилась успешно
-                    else:
-                        raise ValueError(
-                            f'Превышен лимит снятия денег: {amount} {self.currency} (комиссия: {curr_fee} {self.currency}). \n')
-                # return f'Средства ({amount} {self.currency}) успешно списаны со счета\n'
-                print(f'Средства ({amount} {self.currency}) успешно списаны со счета "{self.Id}".\n')
-                return True  # операция выполнилась успешно
-            self.status = 'замороженный'
-            return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
-        else:
-            print(message)
+                    # Процент начисляется на всю снимаемую сумму (т.к. она вся идет в заем)
+                    curr_fee = amount * self.fee
+                # Добавляем процент к снимаемой сумме
+                current_balance -= curr_fee
+                # Проверка лимита заемных средств
+                if abs(current_balance) <= self.overdraft_balance:
+                    self.overdraft_balance += current_balance
+                    self.secure_balance = 0
+                    msg = f"""Средства ({amount} {self.currency}) успешно списаны со счета\n'  
+                           с учетом комиссии ({curr_fee} {self.currency})"""  # \n
+                else:
+                    msg = f"""Превышен лимит снятия денег: {amount} {self.currency} 
+                            (комиссия: {curr_fee} {self.currency}). """  # \n
+                    flg = False
+        return flg, msg
 
     def get_account_info(self):
         super().get_account_info()
@@ -522,7 +490,7 @@ class PremiumAccount(BankAccount):
 
     def __str__(self):
         super().__str__()
-        return f'Тип счёта: BankAccount. \n' \
+        return f'Тип счёта: PremiumAccount. \n' \
                f'Владелец: {self.person}. \n' \
                f'Номер счета: {self.id_num}. \n' \
                f'Статус счёта: {self.status}. \n' \
@@ -557,71 +525,68 @@ class InvestmentAccount(BankAccount):
         self._yearly_growth_rate = value
 
     def deposit(self, amount):
-        if super().deposit(amount):
+        flg, msg = super().deposit(amount)
+        if flg is True:
             self.current_balance += amount
-            # return f'Средства ({amount} {self.currency}) успешно внесены на счет\n'
-            print(f'Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}".\n')
-            return True  # операция выполнилась успешно
-        self.status = 'замороженный'
-        return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
+            msg = f'Средства ({amount} {self.currency}) успешно внесены на счет "{self.Id}"'  # \n
+        return flg, msg
 
     def deposit_securities(self, security, amount):
-        if not (self.is_suspicious_actions(amount) | self.is_forbidden_actions()):
+        flg, msg = self.validate_operation(amount, oper_type='deposit_securities')
+        if flg is True:
             if security in self.invest_dict:
                 if amount > self.current_balance:
-                    raise ValueError(
-                        f'Недостаточно средств на счете "{self.Id}". Вы можете потратить не более {self.current_balance} {self.currency}.\n')
-                self.current_balance -= amount
-                self.invest_dict[security] += amount
+                    msg = f"""Недостаточно средств на счете "{self.Id}".
+                     Вы можете потратить не более {self.current_balance} {self.currency}."""  # \n
+                    flg = False
+                else:
+                    self.current_balance -= amount
+                    self.invest_dict[security] += amount
+                    msg = f'Средства ({amount} {self.currency}) на покупку {security} успешно потрачены'  # \n
             else:
-                raise ValueError(f"Покупка данной бумаги недоступна. Доступные бумаги: {list(self.invest_dict.keys())}")
-            # return f'Средства ({amount} {self.currency}) на покупку {security} успешно потрачены\n'
-            print(f'Средства ({amount} {self.currency}) на покупку {security} успешно потрачены\n')
-            return True  # операция выполнилась успешно
-        self.status = 'замороженный'
-        return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
+                msg = f"Покупка данной бумаги недоступна. Доступные бумаги: {list(self.invest_dict.keys())}"
+                flg = False
+        return flg, msg
 
     def withdraw(self, amount):
-        if super().withdraw(amount):
+        flg, msg = super().withdraw(amount)
+        if flg is True:
             if amount > self.current_balance:
-                self.secure_balance += amount
-                raise ValueError(
-                    f"Недостаточно средств на счете. Доступны средства для снятия: {self.current_balance} {self.currency}")
-            self.current_balance -= amount
-            # return f'Средства ({amount} {self.currency}) успешно списаны со счета\n'
-            print(f'Средства ({amount} {self.currency}) успешно списаны со счета "{self.Id}".\n')
-            return True  # операция выполнилась успешно
-        self.status = 'замороженный'
-        return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
+                msg = f"Недостаточно средств на счете. Доступны средства для снятия: {self.current_balance} {self.currency}"
+                flg = False
+            else:
+                self.current_balance -= amount
+                msg = f'Средства ({amount} {self.currency}) успешно списаны со счета "{self.Id}".'  # \n
+        return flg, msg
 
     def project_yearly_growth(self):
         for security in list(self.invest_dict.keys()):
             self.secure_balance += self.invest_dict[security] * self.yearly_growth_rate
             self.invest_dict[security] += self.invest_dict[security] * self.yearly_growth_rate
-        return f'Стоимость портфеля выросла на {self.yearly_growth_rate * 100}% \n'
+        return f'Стоимость портфеля выросла на {self.yearly_growth_rate * 100}% '  # \n
 
     def withdraw_securities(self, security, amount):
-        if not (self.is_suspicious_actions(amount) | self.is_forbidden_actions()):
+        flg, msg = super().withdraw(amount, 'withdraw_securities')
+        if flg is True:
             if security in self.invest_dict:
                 if amount > self.invest_dict[security]:
                     self.current_balance += self.invest_dict[security]
                     buffer = self.invest_dict[security]
                     self.invest_dict[security] = 0
-                    # return f"Максимальная сумма для продажи {security} ({buffer} {self.currency}). " \
-                    #     f"Она была переведена на валютный счет. \n"
                     print(f'Максимальная сумма для продажи {security} ({buffer} {self.currency}). ', end='')
-                    print(f'Она была переведена на валютный счет. \n')
-                    return True  # операция выполнилась успешно
+                    print(f'Она была переведена на валютный счет. ')  # \n
+                    msg = f"""Максимальная сумма для продажи {security} ({buffer} {self.currency}). '
+                            Она была переведена на валютный счет. """  # \n
+                    return True, msg  # операция выполнилась успешно
                 else:
                     self.invest_dict[security] -= amount
                     self.current_balance += amount
+                    msg = f"""Средства ({amount} {self.currency}) c продажи {security} 
+                            успешно переведены на валютный счет."""  # \n
             else:
-                raise ValueError(f"Продажа данной бумаги недоступна. Доступные бумаги: {list(self.invest_dict.keys())}")
-            # return f'Средства ({amount} {self.currency}) c продажи {security} успешно переведены на валютный счет.\n'
-            print(f'Средства ({amount} {self.currency}) c продажи {security} успешно переведены на валютный счет.\n')
-            return True  # операция выполнилась успешно
-        self.status = 'замороженный'
-        return False  # операция не выполнилась, добавить клиенту флаг "Подозрительные действия
+                msg = f"Продажа данной бумаги недоступна. Доступные бумаги: {list(self.invest_dict.keys())}"
+                flg = False
+        return flg, msg
 
     def get_account_info(self):
         super().get_account_info()
@@ -635,7 +600,7 @@ class InvestmentAccount(BankAccount):
 
     def __str__(self):
         super().__str__()
-        return f'Тип счёта: BankAccount. \n' \
+        return f'Тип счёта: InvestmentAccount. \n' \
                f'Владелец: {self.person}. \n' \
                f'Номер счета: {self.id_num}. \n' \
                f'Статус счёта: {self.status}. \n' \
@@ -650,8 +615,6 @@ class InvestmentAccount(BankAccount):
 
 class Bank:
     # Список констант, которые удобно менять в одном месте, а не искать по всему коду
-    CLIENT_DB = []  # список клиентов (экземпляров класса Client)
-    ACCOUNT_DB = []  # список счетов всех клиентов
     AUTH_TRIES = 3
     CURR_CLIENT = ''  # текущий клиент, нужен для авторизации
     ACCOUNT_TYPE = {'SavingsAccount': SavingsAccount
@@ -663,6 +626,8 @@ class Bank:
 
     def __init__(self, name):
         self.name = name
+        self.client_db = []  # список клиентов (экземпляров класса Client)
+        self.account_db = []  # список счетов всех клиентов
 
     # Метод добавления клиента
     # Атрибут add_client_id нужен для клиента его в системе Банка
@@ -674,7 +639,7 @@ class Bank:
                             add_contact_info, add_birthday)
         # Проверка уникальности ID нового клиента
         while not flag:
-            for search_client in self.CLIENT_DB:
+            for search_client in self.client_db:
                 # если нашли совпадение по ID клиента
                 if new_client.client_id == search_client.client.client_id:
                     print(f"Номер клиента занят. Ему будет присвоен другой номер \n")
@@ -685,7 +650,7 @@ class Bank:
                 flag = True  # Проверка прошла успешно
         # Теперь можно добавлять клиента в базу Банка
         new_client_card = Bank_Client_card(new_client, add_password, [], False)
-        self.CLIENT_DB.append(new_client_card)  # добавление клиента в базу Банка
+        self.client_db.append(new_client_card)  # добавление клиента в базу Банка
         self.CURR_CLIENT = new_client_card  # добавленный клиент становится активным для совершения транзакций
         return f"""Клиент "{' '.join((new_client.full_name.values()))}" успешно добавлен в систему банка "{self.name}". \n"""
 
@@ -697,7 +662,7 @@ class Bank:
         if add_account not in self.ACCOUNT_TYPE.keys():
             raise ValueError(f"Доступные для создания типы счетов: {self.ACCOUNT_TYPE.keys()} \n")
         # Проверка на существование клиента в системе банка
-        for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             if linked_person_id == search_client.client.client_id:
                 full_name = ' '.join(list(search_client.client.full_name.values()))
                 break
@@ -709,7 +674,7 @@ class Bank:
                                                      self.OVERDRAFT_TOTAL,
                                                      self.OVERDRAFT_DAILY, self.PERCENT_RATE)
             while not flag:
-                for check_acc in self.ACCOUNT_DB:
+                for check_acc in self.account_db:
                     # если нашли совпадение по ID счета
                     if check_acc.Id == account.Id:
                         # пересоздаем счет с новым ID
@@ -723,7 +688,7 @@ class Bank:
             account = self.ACCOUNT_TYPE[add_account](add_acc_id, full_name, 0, 'активный', add_currency,
                                                      self.PERCENT_RATE)
             while not flag:
-                for check_acc in self.ACCOUNT_DB:
+                for check_acc in self.account_db:
                     if check_acc.Id == account.Id:
                         account = self.ACCOUNT_TYPE[add_account]('', full_name, 0, 'активный',
                                                                  add_currency, self.PERCENT_RATE)
@@ -732,18 +697,18 @@ class Bank:
                     flag = True  # Проверка прошла успешно, можно добавлять счет в базу данных счетов Банка
 
         # Добавление счета в карточку клиента
-        for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             if linked_person_id == search_client.client.client_id:
                 search_client.accounts.append(account)
                 break
         # Добавление в банковскую систему счетов
-        self.ACCOUNT_DB.append(account)
+        self.account_db.append(account)
         # Вывод информации об успешном создании счета
         print(f'Счет под номером "{add_acc_id}" успешно создан! \n')
 
     # Закрытие счета (без возможности поменять статус, навсегда)
     def close_account(self, close_id):
-        for search_acc in self.ACCOUNT_DB:
+        for search_acc in self.account_db:
             if search_acc.Id == close_id:
                 search_acc.status = 'закрытый'
                 print(f"""Статус счета "{close_id}" успешно изменен на "закрытый". \n""")
@@ -754,10 +719,10 @@ class Bank:
 
     # Заморозка счета
     def freeze_account(self, freeze_id):
-        for search_acc in self.ACCOUNT_DB:
+        for search_acc in self.account_db:
             if search_acc.Id == freeze_id:
                 search_acc.status = 'замороженный'
-                for search_client in self.CLIENT_DB:
+                for search_client in self.client_db:
                     for acc in search_client.accounts:
                         if freeze_id == acc.Id:
                             acc.status = 'замороженный'
@@ -773,11 +738,11 @@ class Bank:
 
     # Разморозка счета
     def unfreeze_account(self, frozen_id):
-        for search_acc in self.ACCOUNT_DB:
+        for search_acc in self.account_db:
             if search_acc.Id == frozen_id:
                 if search_acc.status == 'замороженный':
                     search_acc.status = 'активный'
-                    for search_client in self.CLIENT_DB:
+                    for search_client in self.client_db:
                         for acc in search_client.accounts:
                             if frozen_id == acc.Id:
                                 acc.status = 'активный'
@@ -796,7 +761,7 @@ class Bank:
 
     # Закрытие клиента (без возможности поменять статус, навсегда)
     def close_client(self, close_id):
-        for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             if search_client.client.client_id == close_id:
                 search_client.client.client_status = 'закрытый'
                 print(f"""Статус клиента "{close_id}" успешно изменен на "закрытый". \n""")
@@ -807,7 +772,8 @@ class Bank:
 
     # Заморозка клиента
     def freeze_client(self, freeze_id):
-        for search_client in self.CLIENT_DB:
+        # for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             if search_client.client.client_id == freeze_id:
                 search_client.client.client_status = 'замороженный'
                 print(f"""Статус счета "{freeze_id}" успешно изменен на "замороженный". \n""")
@@ -818,7 +784,7 @@ class Bank:
 
     # Разморозка клиента
     def unfreeze_client(self, frozen_id):
-        for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             if search_client.client.client_id == frozen_id:
                 if search_client.client.client_status in ['замороженный', 'Замороженный']:
                     search_client.client.client_status = 'активный'
@@ -836,7 +802,7 @@ class Bank:
         if not entered_pswrd:
             entered_pswrd = ''
         # Поиск клиента в системе банка
-        for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             if search_client.client.client_id == name:
                 # Проверка статуса клиента
                 if search_client.client.client_status not in ['активный', 'Активный']:
@@ -860,7 +826,7 @@ class Bank:
 
     # Поиск счета по Id
     def search_accounts(self, account_id):
-        for acc in self.ACCOUNT_DB:
+        for acc in self.account_db:
             if str(acc.Id) == str(account_id):
                 print(acc.__str__())
                 break
@@ -870,14 +836,14 @@ class Bank:
 
     # для удобства вывода всех клиентов и проверки их статусов
     def show_all_clients(self):
-        for show_client in self.CLIENT_DB:
+        for show_client in self.client_db:
             print(show_client.client.__str__())
             print(f'Наличие подозрительных операций: {show_client.susp_act_flg} \n')
 
     # расчет баланса, используется в get_total_balance и get_clients_ranking
     def get_balance(self, client_id):
         summa = None
-        for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             if search_client.client.client_id == client_id:
                 summa = 0
                 for acc in search_client.accounts:
@@ -885,17 +851,15 @@ class Bank:
                 return summa
         else:
             print(f'Клиента с номером "{client_id}" не существует. \n')
-            # return False
             return summa
 
     # Получение баланса банка или конкретного клиента
     def get_total_balance(self, client_id: str = None):
         summa = 0
         if not client_id:
-            for acc in self.ACCOUNT_DB:
+            for acc in self.account_db:
                 summa += acc.secure_balance
             print(f'Баланс банка равен {summa}. \n')
-            # return True
             return summa
         else:
             buf = self.get_balance(client_id)
@@ -909,7 +873,7 @@ class Bank:
         # Сортируем словарь по балансу
         clients_ranking = dict()
         # Проходимся по всем клиентам и заполняем словарь
-        for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             balance = self.get_balance(search_client.client.client_id)
             clients_ranking[search_client] = balance
         # Сортируем словарь по убыванию
@@ -922,10 +886,14 @@ class Bank:
             i += 1
         return True
 
-    # Проверка клиента на подозрительную операцию
-    def is_suspicious_action(self, check_action):
-        if not check_action():
-            self.CURR_CLIENT.susp_act_flg = True
+    # поиск ID клиента по ID его счета (для 5 дня)
+    def get_client_id(self, client_acc):
+        for search_client in self.client_db:
+            for acc in search_client.accounts:
+                if acc.Id == client_acc:
+                    return search_client.client.client_id
+        else:
+            return None
 
     def transaction(self, *args):
         # Распаковка атрибутов
@@ -939,7 +907,7 @@ class Bank:
                 break
         # если нет, то ищем нужного клиента в базе и присваиваем ему статус "текущий"
         else:
-            for search_client in self.CLIENT_DB:
+            for search_client in self.client_db:
                 for search_acc in search_client.accounts:
                     if search_acc.Id == acc_Id:
                         if self.authenticate_client(search_client.client.client_id):
@@ -948,6 +916,7 @@ class Bank:
                             print(f'Транзакция не прошла. \n')
                             return False
         for acc in self.CURR_CLIENT.accounts:
+            check_msg = f'Подозрительная активность.'
             if acc.Id == acc_Id:
                 # Логика транзакции
                 # получаем название метода
@@ -958,7 +927,8 @@ class Bank:
                     if acc.__class__.__name__ in ['SavingsAccount', 'PremiumAccount']:
                         if method in ['deposit', 'withdraw']:
                             summa = others[0]
-                            if not cur_method(summa):
+                            flg, msg = cur_method(summa)
+                            if flg is False:
                                 self.CURR_CLIENT.susp_act_flg = True
                         else:
                             print(cur_method())
@@ -966,12 +936,14 @@ class Bank:
                     if acc.__class__.__name__ == 'InvestmentAccount':
                         if method in ['deposit', 'withdraw']:
                             summa = others[0]
-                            if not cur_method(summa):
+                            flg, msg = cur_method(summa)
+                            if flg is False and check_msg in msg:
                                 self.CURR_CLIENT.susp_act_flg = True
                         elif method in ['deposit_securities', 'withdraw_securities']:
                             security = others[0]
                             summa = others[1]
-                            if not cur_method(security, summa):
+                            flg, msg = cur_method(security, summa)
+                            if flg is False and check_msg in msg:
                                 self.CURR_CLIENT.susp_act_flg = True
                         else:
                             print(cur_method())
@@ -990,7 +962,8 @@ class Bank:
             f'Текущий клиент: {' '.join(list(self.CURR_CLIENT.client.full_name.values()))} c номером "{self.CURR_CLIENT.client.client_id}"')
         print(f'Список клиентов: ')
         buf1 = 1
-        for search_client in self.CLIENT_DB:
+        # for search_client in self.CLIENT_DB:
+        for search_client in self.client_db:
             full_name = ' '.join(list(search_client.client.full_name.values()))
             print(f'{buf1}) {full_name} c номером "{search_client.client.client_id}" имеет следующие счета: ')
             if not search_client.accounts:
@@ -1088,17 +1061,140 @@ class Bank_Client_card:
 
 
 # ==================================================================================================================== #
+# =====================================================  Day 5  ====================================================== #
+# ==================================================================================================================== #
+
+# Логи по каждой транзакции, инстансы будут храниться в аудите
+class Log:
+    # ID, priority, sender, receiver, Type, Sum, currency, timestamps, security
+    def __init__(self, trans_id, sender_Bank, sender_client_id, sender_acc,
+                 receiver_Bank, receiver_client_id, receiver_acc, Sum, currency,
+                 timestamps, trans_status, trans_description):
+        self.trans_id = trans_id  # ID транзакции
+        if sender_acc is not None:
+            self.sender_Bank = sender_Bank.name  # Банк отправителя
+            self.sender_client_id = sender_client_id  # ID отправителя
+            self.sender_acc = sender_acc  # ID счета отправителя
+        else:
+            self.sender_Bank = None
+            self.sender_client_id = None
+            self.sender_acc = None
+        if receiver_acc is not None:
+            self.receiver_Bank = receiver_Bank.name  # Банк получателя
+            self.receiver_client_id = receiver_client_id  # ID получателя
+            self.receiver_acc = receiver_acc  # ID счета получателя
+        else:
+            self.receiver_Bank = None
+            self.receiver_client_id = None
+            self.receiver_acc = None
+        self.Sum = Sum  # Сумма транзакции
+        self.currency = currency  # Валюта транзакции
+        self.timestamps = timestamps  # Время начала выполнения транзакции
+        self.trans_status = trans_status  # Результат выполнения транзакции
+        self.description = trans_description  # Описание выполненной транзакции
+        # self.severity = random.choice(['INFO', 'WARNING', 'ERROR'])
+        self.severity = 'INFO'  # Уровень важности лога
+        pass
+
+    # Логика по определению важности лога
+    def set_severity(self):
+        pass
+
+    def log_info(self):
+        result = f"""{self.severity}, {self.trans_id}, {self.sender_Bank}, {self.sender_client_id}, {self.sender_acc}, \
+{self.receiver_Bank}, {self.receiver_client_id}, {self.receiver_acc}, {self.Sum}, \
+{self.currency}, {self.timestamps}, {self.trans_status},{self.description} \n"""
+        return result
+
+    def __str__(self):
+        pass
+
+
+# Можно подключить к процессору методом и пользоваться им
+class AuditLog:
+    SOURCE_CODE = ['level', 'type', 'tx_id', 'client_id']
+    def __init__(self, file_name):
+        # self.severity = severity  # уровень важности (INFO / WARNING / ERROR)
+        self.file_name = file_name + '.txt'
+        self.log_db = []
+        with open(self.file_name, 'w', encoding='utf-8') as f:
+            f.write('Структура логов:\n')
+            f.write('Уровень важности, ID транзакции, Банк отправителя, ID отправителя, ID счета отправителя, \
+            Банк получателя, ID получателя, ID счета получателя, Сумма транзакции, алюта транзакции, \
+            Время начала выполнения транзакции, Результат выполнения транзакции, Описание выполненной транзакции\n')
+            f.write('Перечень логов:\n')
+        pass
+
+    # Создание лога
+    def apply_log(self, got_log: Log):
+        self.write_to_memory(got_log)
+        self.write_to_file(got_log)
+
+    # Запись лога в память
+    def write_to_memory(self, curr_log: Log):
+        self.log_db.append(curr_log)
+        pass
+
+    # Запись лога в файл
+    def write_to_file(self, curr_log: Log):
+        with open(self.file_name, 'a', encoding='utf-8') as f:
+            f.write(curr_log.log_info())
+        pass
+
+    # Фильтрация логов (по уровню, типу события, tx_id, client_id)
+    def filtration(self, source):
+        if source in self.SOURCE_CODE:
+            pass
+        else:
+            print(f'Доступные команды: {self.SOURCE_CODE}')
+
+
+    def __str__(self):
+        pass
+
+
+# Наверное стоит его подключить к процессору отдельным методом, работает во время обработки транзакции
+class RiskAnalyzer:
+    def __init__(self, risk_level):
+        self.risk_level = risk_level  # низкий, средний, высокий
+        pass
+
+    # Проверка на крупную сумму
+    def check_suspicious_sum(self, amount):
+        pass
+
+    # Проверка на частые операции
+    def check_suspicious_freq_operation(self):
+        pass
+
+    # Проверка на переводы на новые счета
+    def check_new_transfer(self):
+        pass
+
+    # Проверка на ночные операции
+    def check_late_time(self):
+        pass
+
+    def __str__(self):
+        pass
+
+
+# ==================================================================================================================== #
+# =====================================================   END   ====================================================== #
+# ==================================================================================================================== #
+
+
+# ==================================================================================================================== #
 # =====================================================  Day 4  ====================================================== #
 # ==================================================================================================================== #
 
 # timestamps: если timestamps не передается, ему ставится текущее время
 # timestamps: если время будет больше, когда транзакция должна начаться, то она будет отложена
-# priority_code: выбрана простая логика случайного присваивания приоритета
 class Transaction:
     PRIORITY_LIST = [1, 2, 3, 4, 5]  # от более значимых к менее значимым
     INITIAL_FEE = 0
 
-    def __init__(self, ID, sender, receiver, Type, Sum, currency, timestamps=None):
+    def __init__(self, ID, priority, sender, receiver, Type, Sum, currency, *args):
         self.ID = ID
         self.Type = Type
         self.Sum = Sum
@@ -1108,30 +1204,16 @@ class Transaction:
         self.receiver = receiver
         self.status = None
         self.description = ''
-        self.priority_code = random.choice(self.PRIORITY_LIST)
-        if timestamps is None:
-            self.timestamps = datetime.now().time()
-
-    # Валидация входных параметров
-    # @property
-    # def status(self):
-    #     return self.status
-    #
-    # @status.setter
-    # def status(self, value):
-    #     if value not in self.AVAILABLE_STATUS and value is not None:
-    #         raise ValueError(f'Неверный статус! Он может принимать значения {', '.join(self.AVAILABLE_STATUS)}')
-    #     self._status = value
-
-    # @property
-    # def timestamps(self):
-    #     return self.timestamps
-    #
-    # @timestamps.setter
-    # def timestamps(self, value):
-    #     if value is None:
-    #         value = datetime.now().time()
-    #     self._timestamps = value
+        # self.priority_code = random.choice(self.PRIORITY_LIST)
+        self.priority_code = priority
+        self.security = None
+        if args[1] is not None:
+            self.timestamps = args[1]
+            self.security = args[0]
+        elif args[0] is not None:
+            self.timestamps = args[0]
+        else:
+            self.timestamps = datetime.now()
 
     def __str__(self):
         pass
@@ -1139,10 +1221,6 @@ class Transaction:
 
 # Очередь, имеет уникальный ID и хранит в себе список транзакций на выполнение.
 class TransactionQueue:
-    # RANDOM_ID_LEN = 8  # длина ID очереди
-    # INITIAL_FEE = 0
-
-    # def __init__(self, Id=None, transactions: Transaction = None):
     def __init__(self, transactions: Transaction = None):
         self.transaction_list = list(transactions) if transactions is not None else []
 
@@ -1164,53 +1242,130 @@ class TransactionQueue:
                 break
 
 
-# хранит в себе очередь очередей транзакций
-# создает новую очередь
+# хранит в себе очередь транзакций
+# Хранит в себе результаты выполнения предыдущей очереди транзакций
 # редактирует очередь
 # запускает выполнение очереди
 class TransactionProcessor:
-    # созданный лист транзакций
-    # QUEUE_LIST = []
     RANDOM_ID_LEN = 8
     RETRY_ATTEMPTS = 3
     AVAILABLE_STATUS = ['PENDING', 'SUCCESS', 'FAILED', 'CANCELED']
     PREVIOUS_RESULT = []
+    EXTERNAL_FEE_SUM = 1
+    EXTERNAL_FEE_CURRENCY = 'USD'
 
-    def __init__(self, bank_name):
-        self.bank = bank_name
+    def __init__(self):
         all_symbols = string.ascii_lowercase + string.digits  # все буквы английского алфавита в нижнем регистре + цифры
         Id = ''.join(random.choice(all_symbols) for _ in range(self.RANDOM_ID_LEN))
         self.processorId = Id
         self.current_queue = TransactionQueue()
+        self.bank_list = []
+        self.auditlog = None
+        self.risk_analyser = None
         pass
 
+    # Добавление банков в работу процессора
+    def add_bank(self, bank: Bank):
+        self.bank_list.append(bank)
+
+    # Добавление AuditLog в работу процессора
+    def add_AuditLog(self, audit: AuditLog):
+        self.auditlog = audit
+
+    # Добавление RiskAnalyzer в работу процессора
+    def add_RiskAnalyzer(self, r_a: RiskAnalyzer):
+        self.risk_analyser = r_a
+
+    # Создание лога
+    def make_log(self, curr_trans: Transaction):
+        # Если счет отправителя не пустой
+        if curr_trans.sender is not None:
+            # Получение счета и Банка отправителя по ID счета отправителя
+            get_sender_acc, get_sender_Bank = self.is_found_acc(curr_trans.sender)
+            print(get_sender_acc.Id)
+            get_sender_acc_id = get_sender_acc.Id
+            # Получение ID клиента по ID счета отправителя
+            get_sender_client_id = get_sender_Bank.get_client_id(curr_trans.sender)
+        else:
+            # get_sender_acc_id, get_sender_Bank, get_sender_client_id = None, None, None
+            get_sender_acc_id = None
+            get_sender_Bank = None
+            get_sender_client_id = None
+        # Если счет получателя не пустой
+        if curr_trans.receiver is not None:
+            # Получение счета и Банка отправителя по ID счета отправителя
+            get_receiver_acc, get_receiver_Bank = self.is_found_acc(curr_trans.receiver)
+            get_receiver_acc_id = get_receiver_acc.Id
+            # Получение ID клиента по ID счета отправителя
+            get_receiver_client_id = get_receiver_Bank.get_client_id(curr_trans.receiver)
+        else:
+            # get_receiver_acc_id, get_receiver_Bank, get_receiver_client_id = None, None, None
+            get_receiver_acc_id = None
+            get_receiver_Bank = None
+            get_receiver_client_id = None
+        # Создание лога
+        current_log = Log(curr_trans.ID, get_sender_Bank, get_sender_client_id, get_sender_acc_id,
+                          get_receiver_Bank, get_receiver_client_id, get_receiver_acc_id, curr_trans.Sum,
+                          curr_trans.currency, curr_trans.timestamps, curr_trans.status, curr_trans.description)
+        # Добавление лога в аудит
+        if self.auditlog is not None:
+            self.auditlog.apply_log(current_log)
+        else:
+            raise ValueError(f'Подключите AuditLog к транзакционному процессору!')
+
     def add_transaction_in_queue(self, queue_id, queue_sender, queue_receiver, queue_Type, queue_Sum, queue_currency,
-                                 queue_timestamps=None):
+                                 queue_security=None, queue_timestamps=None, queue_priority=None):
+        # Правила распределения приоритета
+        if queue_priority is None:
+            queue_sender_acc, queue_sender_bank = self.is_found_acc(queue_sender)
+            queue_receiver_acc, queue_receiver_bank = self.is_found_acc(queue_sender)
+            if queue_sender_bank != queue_receiver_bank:
+                queue_priority = 1
+            elif queue_sender_acc is None or queue_receiver_acc is None:
+                if queue_Type == 'deposit':
+                    queue_priority = 2
+                if queue_Type in ['deposit_securities', 'withdraw_securities']:
+                    queue_priority = 3
+                if queue_Type == 'withdraw':
+                    queue_priority = 4
+            elif queue_sender_acc is not None and queue_receiver_acc is not None:
+                if queue_Type == 'deposit':
+                    queue_priority = 2
+                elif queue_Type == 'withdraw':
+                    queue_priority = 3
+            else:
+                queue_priority = 5
+
+        # Создание транзакции
         current_transaction = Transaction(queue_id
+                                          , queue_priority
                                           , queue_sender
                                           , queue_receiver
                                           , queue_Type
                                           , queue_Sum
                                           , queue_currency
-                                          , queue_timestamps)
+                                          , queue_security
+                                          , queue_timestamps
+                                          )
         self.current_queue.add_transaction(current_transaction)
 
     def set_transaction_to_cancel(self, queue_id):
         self.current_queue.cancel_transaction(queue_id)
         pass
 
-    # Считает комиссию
-    def calculate_fee(self):
-        pass
+    # # Считает комиссию
+    # def calculate_fee(self):
+    #     pass
 
     # Поиск счета в БД банка
     def is_found_acc(self, acc_id):
-        for acc in self.bank.ACCOUNT_DB:
-            if str(acc.Id) == str(acc_id):
-        #         return True  # Счет найден
-        # return False  # Счет не найден
-                return acc
-        return None
+        # Поиск по банкам
+        for bank in self.bank_list:
+            # Поиск по счетам банка
+            for acc in bank.account_db:
+                if str(acc.Id) == str(acc_id):
+                    return acc, bank
+        return None, None
 
     #  RUB, USD, EUR, KZT, CNY
     def convert(self, cur_from, cur_to, summa):
@@ -1263,60 +1418,174 @@ class TransactionProcessor:
                 return summa * 0.014
 
     # Проверяет правила
-    # def check_rules(self): #, check_sender, check_receiver, check_Type, check_Sum, check_currency):
-    def check_rules(self, check_sender, check_receiver, check_Type, check_Sum):  # , check_currency
+    def check_rules(self, check_sender, check_receiver, check_Type, check_Sum, check_currency, check_security=None):
         # == проверяем наличие счетов == #
+        flg = False
+        msg = ''
+        sender = None
+        receiver = None
         # если оба счета пустые - ошибка
         if check_sender is None and check_receiver is None:
-            return f'Cчета отправителя и получателя не могут быть пустыми одновременно.'
-        # если счет получателя пустой
-        elif check_sender is None:
-            receiver = self.is_found_acc(check_receiver)
-            if receiver is None:
-                return f'Cчет получателя не найден в банковской системе счетов.'
-            # if not self.is_found_acc(check_receiver):
-            #     return f'Cчет получателя не найден в банковской системе счетов.'
+            msg = f'Cчета отправителя и получателя не могут быть пустыми одновременно.'
+            # flg = False
+            return flg, msg
         # если счет отправителя пустой
-        elif check_receiver is None:
-            sender = self.is_found_acc(check_sender)
-            if sender is None:
-                return f'Cчет отправителя не найден в банковской системе счетов.'
-            # if not self.is_found_acc(check_sender):
-            #     return f'Cчет отправителя не найден в банковской системе счетов.'
-        else:
-            sender = self.is_found_acc(check_sender)
-            receiver = self.is_found_acc(check_receiver)
-            if sender is None:
-                return f'Cчет отправителя не найден в банковской системе счетов.'
+        elif check_sender is None:
+            receiver, receiver_bank = self.is_found_acc(check_receiver)
             if receiver is None:
-                return f'Cчет получателя не найден в банковской системе счетов.'
-
-            # if not self.is_found_acc(check_receiver):
-            #     return f'Cчет получателя не найден в банковской системе счетов.'
-            # if not self.is_found_acc(check_sender):
-            #     return f'Cчет отправителя не найден в банковской системе счетов.'
-        # == проверяем название метода == #
-        if check_Type == 'deposit':
-            message = sender.withdraw(check_Sum)
-            if message != 'Done':
-                return message
-            message = receiver.deposit(check_Sum)
-            if message != 'Done':
-                return message
-        elif check_Type == 'withdraw':
-            message = sender.deposit(check_Sum)
-            if message != 'Done':
-                return message
-            message = receiver.withdraw(check_Sum)
-            if message != 'Done':
-                return message
+                msg = f'Cчет получателя не найден в банковской системе счетов.'
+                # flg = False
+                return flg, msg
+            # Конвертация валюты
+            if receiver.currency != check_currency:
+                receiver_sum = self.convert(check_currency, receiver.currency, check_Sum)
+            else:
+                receiver_sum = check_Sum
+            # Выбор операции
+            if check_Type in [
+                'deposit'
+                , 'withdraw'
+                , 'apply_monthly_interest'
+                , 'deposit_securities'
+                , 'withdraw_securities'
+                , 'project_yearly_growth']:
+                if check_Type == 'deposit':
+                    flg, msg = receiver.deposit(receiver_sum)
+                if check_Type == 'withdraw':
+                    flg, msg = receiver.withdraw(receiver_sum)
+                if check_Type == 'apply_monthly_interest':
+                    flg, msg = receiver.apply_monthly_interest()
+                if check_Type == 'deposit_securities' and check_security is not None:
+                    flg, msg = receiver.deposit_securities(check_security, receiver_sum)
+                if check_Type == 'withdraw_securities' and check_security is not None:
+                    flg, msg = receiver.withdraw_securities(check_security, receiver_sum)
+                if check_Type == 'project_yearly_growth':
+                    flg, msg = receiver.project_yearly_growth(receiver_sum, check_security)
+            else:
+                msg = f'Тип операции неопознан. Некорректный метод "{check_Type}".'
+            return flg, msg
+        # если счет получателя пустой
+        elif check_receiver is None:
+            sender, sender_bank = self.is_found_acc(check_sender)
+            if sender is None:
+                # return f'Cчет отправителя не найден в банковской системе счетов.'
+                msg = f'Cчет отправителя не найден в банковской системе счетов.'
+                # flg = False
+                return flg, msg
+            # Конвертация валюты
+            if sender.currency != check_currency:
+                sender_sum = self.convert(check_currency, sender.currency, check_Sum)
+            else:
+                sender_sum = check_Sum
+            # Выбор операции
+            if check_Type in [
+                'deposit'
+                , 'withdraw'
+                , 'apply_monthly_interest'
+                , 'deposit_securities'
+                , 'withdraw_securities'
+                , 'project_yearly_growth']:
+                if check_Type == 'deposit':
+                    flg, msg = sender.deposit(sender_sum)
+                if check_Type == 'withdraw':
+                    flg, msg = sender.withdraw(sender_sum)
+                if check_Type == 'apply_monthly_interest':
+                    flg, msg = sender.apply_monthly_interest()
+                if check_Type == 'deposit_securities' and check_security is not None:
+                    flg, msg = sender.deposit_securities(check_security, sender_sum)
+                if check_Type == 'withdraw_securities' and check_security is not None:
+                    flg, msg = sender.withdraw_securities(check_security, sender_sum)
+                if check_Type == 'project_yearly_growth':
+                    flg, msg = sender.project_yearly_growth(sender_sum, check_security)
+            else:
+                msg = f'Тип операции неопознан. Некорректный метод "{check_Type}".'
+            return flg, msg
+        # если происходит транзакция между счетами
         else:
-            return f'Некорректный метод {check_Type}.'
-        return ""
+            sender, sender_bank = self.is_found_acc(check_sender)
+            receiver, receiver_bank = self.is_found_acc(check_receiver)
+
+            # Проверка на внешнюю операцию
+            if sender_bank.name != receiver_bank.name:
+                external_flg = True
+            else:
+                external_flg = False
+            # == конвертация == #
+            external_sum = self.EXTERNAL_FEE_SUM
+            external_currency = self.EXTERNAL_FEE_CURRENCY
+            # if sender is not None and sender.currency != check_currency:
+            if sender.currency != check_currency:
+                sender_sum = self.convert(check_currency, sender.currency, check_Sum)
+            else:
+                sender_sum = check_Sum
+            # if receiver is not None and receiver.currency != check_currency:
+            if receiver.currency != check_currency:
+                receiver_sum = self.convert(check_currency, receiver.currency, check_Sum)
+            else:
+                receiver_sum = check_Sum
+
+        # == Выбор операции == #
+        if check_Type in ['deposit', 'withdraw']:
+            if check_Type == 'deposit':
+                sender_flg, sender_msg = sender.deposit(sender_sum)
+                if external_flg is True:
+                    if external_currency != receiver.currency:
+                        external_sum = self.convert(external_currency, receiver.currency, external_sum)
+                    receiver_flg, receiver_msg = receiver.withdraw(receiver_sum + external_sum)
+                else:
+                    receiver_flg, receiver_msg = receiver.withdraw(receiver_sum)
+            elif check_Type == 'withdraw':
+                if external_flg is True:
+                    if external_currency != sender.currency:
+                        external_sum = self.convert(external_currency, sender.currency, external_sum)
+                    sender_flg, sender_msg = sender.withdraw(sender_sum + external_sum)
+                else:
+                    sender_flg, sender_msg = sender.withdraw(sender_sum)
+                receiver_flg, receiver_msg = receiver.deposit(receiver_sum)
+
+            # === Проверка статуса транзакции === #
+            # Если транзакция прошла успешно
+            if sender_flg and receiver_flg is True:
+                msg = sender_msg + receiver_msg
+                flg = True
+            # Если транзакция прервалась, вывести статус и код ошибки
+            else:
+                # если проблема возникла на стороне отправителя и получателя
+                if sender_flg is False and receiver_flg is False:
+                    msg = sender_msg + receiver_msg
+                    flg = False
+                # проблема возникла на стороне отправителя, откат транзакции получателя
+                elif sender_flg is False:
+                    msg = sender_msg
+                    flg = sender_flg
+                    if check_Type == 'deposit':
+                        if external_flg is True:
+                            receiver.deposit(receiver_sum + external_sum)
+                        else:
+                            receiver.deposit(receiver_sum)
+                    if check_Type == 'withdraw':
+                        receiver.withdraw(receiver_sum)
+                # проблема возникла на стороне получателя, откат транзакции отправителя
+                elif receiver_flg is False:
+                    msg = receiver_msg
+                    flg = receiver_flg
+                    if check_Type == 'deposit':
+                        sender.withdraw(sender_sum)
+                    if check_Type == 'withdraw':
+                        if external_flg is True:
+                            sender.deposit(sender_sum + external_sum)
+                        else:
+                            sender.deposit(sender_sum)
+            # === =========================== === #
+        else:
+            msg = f'Некорректный метод "{check_Type}". Можно выбрать только "withdraw" или "deposit".'
+        return flg, msg
 
     # Если время в будущем, возвращаем False, иначе - True
     def check_time(self, time):
-        if time > datetime.now().time():
+        if type(time) == str:
+            time = datetime.strptime(time, '%d.%m.%Y')
+        if time > datetime.now():
             return False
         return True
 
@@ -1326,8 +1595,9 @@ class TransactionProcessor:
         # начинаем перебирать отсортированный список транзакций
         for trans in self.current_queue.transaction_list:
             if trans.status == 'CANCELED':
-                trans.description = f'Транзакция не выполнилась из-за ее статуса: {trans.status}'
+                trans.description = f'Транзакция не выполнилась из-за ее статуса: {trans.status}.'
                 self.PREVIOUS_RESULT.append(trans)
+                self.make_log(trans)
             elif trans.status == 'PENDING':
                 # self, ID, sender, receiver, Type, Sum, currency, timestamps = None
                 # Проверка времени старта транзакции
@@ -1335,26 +1605,39 @@ class TransactionProcessor:
                     start_later_trans.append(trans)
                     continue
                 # Проверка правил осуществления транзакций
-                trans.description = f'Транзакция прервана! '
-                # print(self.check_rules(trans.sender, trans.receiver, trans.Type, trans.Sum))
-                trans.description += self.check_rules(trans.sender, trans.receiver, trans.Type, trans.Sum) #, trans.currency)
-                if trans.description != 'Транзакция прервана! ':
+                flg, msg = self.check_rules(trans.sender, trans.receiver, trans.Type, trans.Sum, trans.currency,
+                                            trans.security)
+                if flg is False:
                     trans.status = 'FAILED'
+                    trans.description = f'Транзакция прервана! ' + str(msg)
                     self.PREVIOUS_RESULT.append(trans)
+                    self.make_log(trans)
                     continue
                 trans.status = 'SUCCESS'
-                trans.description = f'Транзакция выполнилась успешно'
+                trans.description = f'Транзакция выполнилась успешно. ' + str(msg)
                 self.PREVIOUS_RESULT.append(trans)
+                self.make_log(trans)
             else:
                 trans.description = f"""Транзакция не выполнилась из-за ее неверного статуса: "{trans.status}".
                                     Статусы могут принимать значения: '{"', '".join(self.AVAILABLE_STATUS)}'"""
                 self.PREVIOUS_RESULT.append(trans)
+                self.make_log(trans)
         # начинаем перебирать список отложенных транзакций
         for trans in start_later_trans:
-            pass
+            flg, msg = self.check_rules(trans.sender, trans.receiver, trans.Type, trans.Sum, trans.currency,
+                                        trans.security)
+            if flg is False:
+                trans.status = 'FAILED'
+                trans.description = f'Транзакция прервана! ' + str(msg)
+                self.PREVIOUS_RESULT.append(trans)
+                self.make_log(trans)
+                continue
+            trans.status = 'SUCCESS'
+            trans.description = f'Транзакция выполнилась успешно. ' + str(msg)
+            self.PREVIOUS_RESULT.append(trans)
+            self.make_log(trans)
         # Обнуляем очередь
         self.current_queue = TransactionQueue()
-        pass
 
     # Выводит информацию пользователю
     def __str__(self):
@@ -1376,11 +1659,14 @@ class TransactionProcessor:
         pass
 
 
+# не забыть про отчеты
+
 # ================================================================ #
 # ========================= Тестирование ========================= #
 # ================================================================ #
 # Создание Банка
 new_bank = Bank('Новый банк')
+old_bank = Bank('Старый банк')
 # Создание клиентов
 print(new_bank.add_client('Сидоров Сан Саныч', 'qwer', '738923 dj@jd.com', '12.03.2005', 111))
 print(new_bank.add_client('Иванов Иван Иванович', 'asdf', '738923 dj@jd.com', '12.03.2005', 222))
@@ -1392,19 +1678,55 @@ new_bank.open_account('SavingsAccount', 'www', 'qwer', 'RUB')
 new_bank.open_account('PremiumAccount', 'sss', 'asdf', 'RUB')
 # Открытие счетов для 'zxcv'.
 new_bank.open_account('InvestmentAccount', 'ccc', 'zxcv', 'RUB')
+#
+#
+print(old_bank.add_client('Петров Петр Петрович', 'poiu', '738923 dj@jd.com', '12.03.2005', 444))
+old_bank.open_account('SavingsAccount', 'mmm', 'poiu', 'RUB')
 
 
 
-new_processor = TransactionProcessor(new_bank)
-new_processor.add_transaction_in_queue('qwer', 'qqq', 'www',
+
+
+new_processor = TransactionProcessor()
+
+audit_log = AuditLog('AuditLog2')
+new_processor.add_AuditLog(audit_log)
+
+new_processor.add_bank(new_bank)
+new_processor.add_bank(old_bank)
+# new_bank.search_accounts('qqq')
+# new_bank.search_accounts('www')
+new_bank.search_accounts('mmm')
+old_bank.search_accounts('mmm')
+# new_processor.add_transaction_in_queue('qwer', None, 'qqq',
+#                                        'deposit', 1000, 'RUB', queue_priority=5)
+new_processor.add_transaction_in_queue('qwer', None, 'qqq',
                                        'deposit', 1000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer2', 'qqq', 'www',
+#                                        'withdraw', 1, 'USD', "20.12.2026")
+# new_processor.add_transaction_in_queue('qwer3', 'ccc', None,
+#                                        'deposit', 1, 'USD', "etf", "20.12.2026")
+# new_processor.add_transaction_in_queue('qwer4', 'ccc', None,
+#                                        'deposit_securities', 1, 'USD', "etf", "20.12.2026")
 # new_processor.add_transaction_in_queue('asd', 'qqq', 'sss',
 #                                        'deposit', 1000, 'RUB')
-new_processor.add_transaction_in_queue('zxcv', 'qqq', 'ccc',
-                                       'deposit', 1000, 'RUB')
-new_processor.set_transaction_to_cancel('zxcv')
+# new_processor.add_transaction_in_queue('zxcv', 'qqq', 'ccc',
+#                                        'deposit', 1000, 'RUB')
+new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+                                       'deposit', 10000, 'RUB')
+new_processor.add_transaction_in_queue('qwer3', 'qqq', 'mmm',
+                                       'deposit', 2, 'USD')
+# new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+#                                        'deposit', 10000, 'RUB', queue_priority=4)
+# new_processor.add_transaction_in_queue('qwer3', 'qqq', 'mmm',
+#                                        'deposit', 2, 'USD', queue_priority=1)
+# new_processor.set_transaction_to_cancel('zxcv')
 new_processor.apply_transaction()
 new_processor.__str__()
+
+# new_bank.search_accounts('qqq')
+# old_bank.search_accounts('mmm')
+# new_bank.search_accounts('ccc')
 
 # # Создание Банка
 # new_bank = Bank('Новый банк')
