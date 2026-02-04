@@ -4,12 +4,11 @@ class AccountFrozenError:
         self.current_status = current_status
 
     def get_reason(self):
-        current_reason = f"""Невозможно провести операцию.\n
-                            Статус счета: {self.current_status}"""
+        current_reason = f"""Невозможно провести операцию. Статус счета: {self.current_status}"""
         return current_reason
 
     def __str__(self):
-        return f'Невозможно провести операцию.\n' \
+        return f'Невозможно провести операцию.' \
                f'Статус счета: {self.current_status}'
 
 
@@ -20,12 +19,12 @@ class AccountClosedError:
         self.current_status = current_status
 
     def get_reason(self):
-        current_reason = f"""Невозможно провести операцию.\n
+        current_reason = f"""Невозможно провести операцию. 
                             Статус счета: {self.current_status}"""
         return current_reason
 
     def __str__(self):
-        return f'Невозможно провести операцию.\n' \
+        return f'Невозможно провести операцию. ' \
                f'Статус счета: {self.current_status}'
 
 
@@ -36,15 +35,15 @@ class InvalidOperationError:
         self.amount = amount
 
     def get_reason(self):
-        current_reason = f"""Невозможно выполнить операцию: неправильный тип данных.\n
-                                Текущий тип данных у {self.amount}: {type(self.amount)}.\n'
-                                Требуемый тип данных: {type(1)}.\n"""
+        current_reason = f"""Невозможно выполнить операцию: неправильный тип данных. 
+                                Текущий тип данных у {self.amount}: {type(self.amount)}. '
+                                Требуемый тип данных: {type(1)}. """
         return current_reason
 
     def __str__(self):
-        return f'Невозможно выполнить операцию: неправильный тип данных.\n' \
-               f'Текущий тип данных у {self.amount}: {type(self.amount)}.\n' \
-               f'Требуемый тип данных: {type(1)}.\n'
+        return f'Невозможно выполнить операцию: неправильный тип данных. ' \
+               f'Текущий тип данных у {self.amount}: {type(self.amount)}. ' \
+               f'Требуемый тип данных: {type(1)}. '
 
 
 # Ошибка недостаточности средств - если хотим снять больше того, что есть на счете
