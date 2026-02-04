@@ -2,7 +2,7 @@ import abc
 import datetime
 import random  # для генерации UUID
 import string  # для генерации UUID
-from datetime import datetime, time  # для проверки временных промежутков
+from datetime import datetime, time, timedelta  # для проверки временных промежутков
 from abc import ABC, abstractmethod  # Импортируем необходимые модули для создания абстрактного класса
 
 
@@ -15,12 +15,11 @@ class AccountFrozenError:
         self.current_status = current_status
 
     def get_reason(self):
-        current_reason = f"""Невозможно провести операцию.\n
-                            Статус счета: {self.current_status}"""
+        current_reason = f"""Невозможно провести операцию. Статус счета: {self.current_status}"""
         return current_reason
 
     def __str__(self):
-        return f'Невозможно провести операцию.\n' \
+        return f'Невозможно провести операцию.' \
                f'Статус счета: {self.current_status}'
 
 
@@ -31,12 +30,12 @@ class AccountClosedError:
         self.current_status = current_status
 
     def get_reason(self):
-        current_reason = f"""Невозможно провести операцию.\n
+        current_reason = f"""Невозможно провести операцию. 
                             Статус счета: {self.current_status}"""
         return current_reason
 
     def __str__(self):
-        return f'Невозможно провести операцию.\n' \
+        return f'Невозможно провести операцию. ' \
                f'Статус счета: {self.current_status}'
 
 
@@ -47,15 +46,15 @@ class InvalidOperationError:
         self.amount = amount
 
     def get_reason(self):
-        current_reason = f"""Невозможно выполнить операцию: неправильный тип данных.\n
-                                Текущий тип данных у {self.amount}: {type(self.amount)}.\n'
-                                Требуемый тип данных: {type(1)}.\n"""
+        current_reason = f"""Невозможно выполнить операцию: неправильный тип данных. 
+                                Текущий тип данных у {self.amount}: {type(self.amount)}. '
+                                Требуемый тип данных: {type(1)}. """
         return current_reason
 
     def __str__(self):
-        return f'Невозможно выполнить операцию: неправильный тип данных.\n' \
-               f'Текущий тип данных у {self.amount}: {type(self.amount)}.\n' \
-               f'Требуемый тип данных: {type(1)}.\n'
+        return f'Невозможно выполнить операцию: неправильный тип данных. ' \
+               f'Текущий тип данных у {self.amount}: {type(self.amount)}. ' \
+               f'Требуемый тип данных: {type(1)}. '
 
 
 # Ошибка недостаточности средств - если хотим снять больше того, что есть на счете
@@ -218,18 +217,18 @@ class BankAccount(AbstractAccount, ABC):
         check_time = datetime.now().time()
         # Проверка на слишком большую сумму
         if check_sum >= self.SUSPICIOUS_SUM:
-            reason = f"Используется подозрительная сумма >= {check_sum}."
+            reason = f"Подозрительная активность. Используется подозрительная сумма >= {check_sum}."
             return True, reason
         # Проверка на необычное время
         #   Если период включает в себя полночь
         if self.SUSPICIOUS_TIME_START > self.SUSPICIOUS_TIME_END:
             if check_time >= self.SUSPICIOUS_TIME_START or check_time <= self.SUSPICIOUS_TIME_END:
-                reason = f"""Операция проводится в подозрительное время ({check_time}) 
+                reason = f"""Подозрительная активность. Операция проводится в подозрительное время ({check_time}) 
                             c {self.SUSPICIOUS_TIME_START} до 00:00 или с 00:00 до {self.SUSPICIOUS_TIME_END}."""
                 return True, reason
         else:
             if self.SUSPICIOUS_TIME_START <= check_time <= self.SUSPICIOUS_TIME_END:
-                reason = f"""Операция проводится в подозрительное время ({check_time}) 
+                reason = f"""Подозрительная активность. Операция проводится в подозрительное время ({check_time}) 
                             c {self.SUSPICIOUS_TIME_START} до {self.SUSPICIOUS_TIME_END}."""
                 return True, reason
         return False, None
@@ -891,9 +890,9 @@ class Bank:
         for search_client in self.client_db:
             for acc in search_client.accounts:
                 if acc.Id == client_acc:
-                    return search_client.client.client_id
+                    return search_client.client.client_id, search_client.client.full_name
         else:
-            return None
+            return None, None
 
     def transaction(self, *args):
         # Распаковка атрибутов
@@ -1067,10 +1066,11 @@ class Bank_Client_card:
 # Логи по каждой транзакции, инстансы будут храниться в аудите
 class Log:
     # ID, priority, sender, receiver, Type, Sum, currency, timestamps, security
-    def __init__(self, trans_id, sender_Bank, sender_client_id, sender_acc,
+    def __init__(self, trans_id, risk_lvl, sender_Bank, sender_client_id, sender_acc, Type,
                  receiver_Bank, receiver_client_id, receiver_acc, Sum, currency,
                  timestamps, trans_status, trans_description):
         self.trans_id = trans_id  # ID транзакции
+        self.risk_lvl = risk_lvl  # Уровень риска транзакции
         if sender_acc is not None:
             self.sender_Bank = sender_Bank.name  # Банк отправителя
             self.sender_client_id = sender_client_id  # ID отправителя
@@ -1087,6 +1087,7 @@ class Log:
             self.receiver_Bank = None
             self.receiver_client_id = None
             self.receiver_acc = None
+        self.Type = Type  # Операция
         self.Sum = Sum  # Сумма транзакции
         self.currency = currency  # Валюта транзакции
         self.timestamps = timestamps  # Время начала выполнения транзакции
@@ -1094,6 +1095,10 @@ class Log:
         self.description = trans_description  # Описание выполненной транзакции
         # self.severity = random.choice(['INFO', 'WARNING', 'ERROR'])
         self.severity = 'INFO'  # Уровень важности лога
+        if self.risk_lvl == 'MEDIUM':
+            self.severity = 'WARNING'
+        elif self.trans_status == 'FAILED':
+            self.severity = 'ERROR'
         pass
 
     # Логика по определению важности лога
@@ -1101,9 +1106,9 @@ class Log:
         pass
 
     def log_info(self):
-        result = f"""{self.severity}, {self.trans_id}, {self.sender_Bank}, {self.sender_client_id}, {self.sender_acc}, \
-{self.receiver_Bank}, {self.receiver_client_id}, {self.receiver_acc}, {self.Sum}, \
-{self.currency}, {self.timestamps}, {self.trans_status},{self.description} \n"""
+        result = f"""{self.severity}, {self.trans_id}, {self.risk_lvl}, {self.trans_status}, {self.sender_Bank}, {self.sender_client_id}, {self.sender_acc}, \
+{self.Type}, {self.receiver_Bank}, {self.receiver_client_id}, {self.receiver_acc}, {self.Sum}, \
+{self.currency}, {self.timestamps}, {self.description} \n"""
         return result
 
     def __str__(self):
@@ -1112,16 +1117,17 @@ class Log:
 
 # Можно подключить к процессору методом и пользоваться им
 class AuditLog:
-    SOURCE_CODE = ['level', 'type', 'tx_id', 'client_id']
+    SOURCE_CODE = ['severity', 'Type', 'trans_id', 'sender_client_id', 'receiver_client_id']
+
     def __init__(self, file_name):
         # self.severity = severity  # уровень важности (INFO / WARNING / ERROR)
         self.file_name = file_name + '.txt'
         self.log_db = []
         with open(self.file_name, 'w', encoding='utf-8') as f:
             f.write('Структура логов:\n')
-            f.write('Уровень важности, ID транзакции, Банк отправителя, ID отправителя, ID счета отправителя, \
-            Банк получателя, ID получателя, ID счета получателя, Сумма транзакции, алюта транзакции, \
-            Время начала выполнения транзакции, Результат выполнения транзакции, Описание выполненной транзакции\n')
+            f.write('Уровень важности, ID транзакции, Уровень риска транзакции, Результат выполнения транзакции, Банк отправителя, ID отправителя, ID счета отправителя, \
+Операция, Банк получателя, ID получателя, ID счета получателя, Сумма транзакции, Валюта транзакции, \
+Время начала выполнения транзакции, Описание выполненной транзакции\n')
             f.write('Перечень логов:\n')
         pass
 
@@ -1142,22 +1148,149 @@ class AuditLog:
         pass
 
     # Фильтрация логов (по уровню, типу события, tx_id, client_id)
+    # level type tx_id client_id
     def filtration(self, source):
         if source in self.SOURCE_CODE:
-            pass
+            # key=lambda x: (math.isnan(x), x)
+            # key = lambda res: getattr(res, source)
+            # Безопасная сортировка, None в начале (чтобы None было в конце, замените "is not None" на "is None")
+            self.log_db.sort(
+                key=lambda res: (
+                    getattr(res, source, None) is not None,
+                    getattr(res, source, None)
+                )
+            )
+            for log in self.log_db:
+                print(log.log_info())
         else:
-            print(f'Доступные команды: {self.SOURCE_CODE}')
+            print('Доступные команды:', *self.SOURCE_CODE)
 
+    def summary_audit(self):
+        counter_risk = 0
+        counter_fail = 0
+        risk_dict = {}
+        msg = ''
+
+        for log in self.log_db:
+            # Подозрительные операции
+            if log.risk_lvl in ['MEDIUM', 'HIGH']:
+                counter_risk += 1
+                # Риск-профиль клиентов
+                if log.risk_lvl == 'HIGH':
+                    if log.sender_client_id not in risk_dict.keys():
+                        risk_dict[log.sender_client_id] = 1
+                    else:
+                        risk_dict[log.sender_client_id] += 1
+            # Падение транзакций операции
+            if log.trans_status == 'FAILED':
+                counter_fail += 1
+
+        # Вывод
+        msg = f"""Количество подозрительных операций: {counter_risk} / {len(self.log_db)}.
+Количество падений транзакций: {counter_fail} / {len(self.log_db)}.  
+Риск-профили клиентов (кол-во рискованных операций): \n"""
+        buf = msg
+        for key, value in risk_dict.items():
+            msg = msg + f"""  "{key}" : {value}"""
+        if buf == msg:
+            msg = msg + f"    Рискованных операций не найдено!"
+
+        return msg
 
     def __str__(self):
         pass
 
 
-# Наверное стоит его подключить к процессору отдельным методом, работает во время обработки транзакции
+# Работа risk_analyser
+# если возвращаемое сообщение о подозрительной сумме, то +1 признак
+# если в логах нет счета получателя, то +1 признак
+# если кол-во записей в логе от отправителя больше n-1 за минуту, то +1 признак
+# нет признаков → LOW, один признак → MEDIUM, 2+ признака → HIGH
+# транзакции с риском HIGH risk_analyser обрубает принудительно
+
+
 class RiskAnalyzer:
-    def __init__(self, risk_level):
-        self.risk_level = risk_level  # низкий, средний, высокий
+    SUSPICIOUS_FREQUENCY = 5
+
+    def __init__(self):
+        # self.risk_level = risk_level  # низкий, средний, высокий
         pass
+
+    # подключение анализатора риска к транзакции
+    def connect_risk_analyzer(self):
+        pass
+
+    def risk_analyzer_operation(self, entered_flg, entered_msg, entered_sender, entered_reciever, curr_auditlog):
+        # Проверка на подозрительные действия
+        susp_msg = f'Подозрительная активность.'  # Во всех сообщениях о подозр. акт. встречается это предложение
+        # add_msg
+        risk_counter = 0  # Счетчик признаков риска
+        if susp_msg in entered_msg:
+            risk_counter += 1
+
+        # Проверка на переводы на новые счета
+        # for log in curr_auditlog:
+        #     if entered_sender is not None and entered_reciever is not None:
+        #         if log.sender_acc == entered_sender and log.receiver_acc == entered_reciever:
+        #             break
+        # else:
+        #     risk_counter += 1
+
+        if entered_sender is not None and entered_reciever is not None:
+            for log in curr_auditlog:
+                if log.sender_acc == entered_sender and log.receiver_acc == entered_reciever:
+                    break
+            else:
+                risk_counter += 1
+
+
+        # Проверка на частые переводы
+        log_counter = 0
+        start = datetime.now() - timedelta(hours=1)
+        for log in curr_auditlog:
+            if log.sender_acc is None:
+                if entered_sender is None:
+                    a = log.timestamps
+                    if log.receiver_acc == entered_reciever and log.timestamps >= start:
+                        log_counter += 1
+                # elif entered_reciever is None:
+                #     if log.receiver_acc == entered_sender and log.timestamps >= start:
+                #         log_counter += 1
+                else:
+                    if log.receiver_acc == entered_sender and log.timestamps >= start:
+                        log_counter += 1
+            elif log.receiver_acc is None:
+                if entered_sender is None:
+                    if log.sender_acc == entered_reciever and log.timestamps >= start:
+                        log_counter += 1
+                # elif entered_reciever is None:
+                #     if log.sender_acc == entered_sender and log.timestamps >= start:
+                #         log_counter += 1
+                else:
+                    if log.sender_acc == entered_sender and log.timestamps >= start:
+                        log_counter += 1
+            else:
+                if entered_sender is None:
+                    if log.sender_acc == entered_reciever and log.timestamps >= start:
+                        log_counter += 1
+                # elif entered_reciever is None:
+                #     if log.sender_acc == entered_sender and log.timestamps >= start:
+                #         log_counter += 1
+                else:
+                    if log.sender_acc == entered_sender and log.timestamps >= start:
+                        log_counter += 1
+        if log_counter > self.SUSPICIOUS_FREQUENCY:
+            risk_counter += 1
+
+        # Вычисление риска
+        risk = 'LOW'
+        if risk_counter == 1:
+            risk = 'MEDIUM'
+        elif risk_counter >= 2:
+            risk = 'HIGH'
+            entered_msg = f'Из-за уровня риска "{risk}" транзакция завершается принудительно. '
+            entered_flg = False
+        return entered_flg, entered_msg, risk
 
     # Проверка на крупную сумму
     def check_suspicious_sum(self, amount):
@@ -1214,6 +1347,7 @@ class Transaction:
             self.timestamps = args[0]
         else:
             self.timestamps = datetime.now()
+        self.risk_lvl = 'LOW'
 
     def __str__(self):
         pass
@@ -1277,7 +1411,7 @@ class TransactionProcessor:
         self.risk_analyser = r_a
 
     # Создание лога
-    def make_log(self, curr_trans: Transaction):
+    def make_log(self, curr_trans: Transaction, curr_risk_lvl):
         # Если счет отправителя не пустой
         if curr_trans.sender is not None:
             # Получение счета и Банка отправителя по ID счета отправителя
@@ -1285,7 +1419,7 @@ class TransactionProcessor:
             print(get_sender_acc.Id)
             get_sender_acc_id = get_sender_acc.Id
             # Получение ID клиента по ID счета отправителя
-            get_sender_client_id = get_sender_Bank.get_client_id(curr_trans.sender)
+            get_sender_client_id, _ = get_sender_Bank.get_client_id(curr_trans.sender)
         else:
             # get_sender_acc_id, get_sender_Bank, get_sender_client_id = None, None, None
             get_sender_acc_id = None
@@ -1297,14 +1431,14 @@ class TransactionProcessor:
             get_receiver_acc, get_receiver_Bank = self.is_found_acc(curr_trans.receiver)
             get_receiver_acc_id = get_receiver_acc.Id
             # Получение ID клиента по ID счета отправителя
-            get_receiver_client_id = get_receiver_Bank.get_client_id(curr_trans.receiver)
+            get_receiver_client_id, _ = get_receiver_Bank.get_client_id(curr_trans.receiver)
         else:
             # get_receiver_acc_id, get_receiver_Bank, get_receiver_client_id = None, None, None
             get_receiver_acc_id = None
             get_receiver_Bank = None
             get_receiver_client_id = None
         # Создание лога
-        current_log = Log(curr_trans.ID, get_sender_Bank, get_sender_client_id, get_sender_acc_id,
+        current_log = Log(curr_trans.ID, curr_risk_lvl, get_sender_Bank, get_sender_client_id, get_sender_acc_id, curr_trans.Type,
                           get_receiver_Bank, get_receiver_client_id, get_receiver_acc_id, curr_trans.Sum,
                           curr_trans.currency, curr_trans.timestamps, curr_trans.status, curr_trans.description)
         # Добавление лога в аудит
@@ -1318,7 +1452,7 @@ class TransactionProcessor:
         # Правила распределения приоритета
         if queue_priority is None:
             queue_sender_acc, queue_sender_bank = self.is_found_acc(queue_sender)
-            queue_receiver_acc, queue_receiver_bank = self.is_found_acc(queue_sender)
+            queue_receiver_acc, queue_receiver_bank = self.is_found_acc(queue_receiver)
             if queue_sender_bank != queue_receiver_bank:
                 queue_priority = 1
             elif queue_sender_acc is None or queue_receiver_acc is None:
@@ -1352,10 +1486,6 @@ class TransactionProcessor:
     def set_transaction_to_cancel(self, queue_id):
         self.current_queue.cancel_transaction(queue_id)
         pass
-
-    # # Считает комиссию
-    # def calculate_fee(self):
-    #     pass
 
     # Поиск счета в БД банка
     def is_found_acc(self, acc_id):
@@ -1419,6 +1549,11 @@ class TransactionProcessor:
 
     # Проверяет правила
     def check_rules(self, check_sender, check_receiver, check_Type, check_Sum, check_currency, check_security=None):
+        # Проверка подключения анализатора риска
+        risk_token = None
+        check_msg = 'Подозрительная активность.'
+        if self.risk_analyser is None:
+            print(f"Подключите RiskAnalyzer к транзакционному процессору!")
         # == проверяем наличие счетов == #
         flg = False
         msg = ''
@@ -1428,14 +1563,14 @@ class TransactionProcessor:
         if check_sender is None and check_receiver is None:
             msg = f'Cчета отправителя и получателя не могут быть пустыми одновременно.'
             # flg = False
-            return flg, msg
+            return flg, msg, risk_token
         # если счет отправителя пустой
         elif check_sender is None:
             receiver, receiver_bank = self.is_found_acc(check_receiver)
             if receiver is None:
                 msg = f'Cчет получателя не найден в банковской системе счетов.'
                 # flg = False
-                return flg, msg
+                return flg, msg, risk_token
             # Конвертация валюты
             if receiver.currency != check_currency:
                 receiver_sum = self.convert(check_currency, receiver.currency, check_Sum)
@@ -1451,19 +1586,57 @@ class TransactionProcessor:
                 , 'project_yearly_growth']:
                 if check_Type == 'deposit':
                     flg, msg = receiver.deposit(receiver_sum)
+                    if flg is True or check_msg in msg:
+                        flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                          check_receiver,
+                                                                                          self.auditlog.log_db)
+                        # Откат операции
+                        if flg is False and check_msg not in msg:
+                            _, _ = receiver.withdraw(receiver_sum)
+
                 if check_Type == 'withdraw':
                     flg, msg = receiver.withdraw(receiver_sum)
+                    if flg is True or check_msg in msg:
+                        flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                          check_receiver,
+                                                                                          self.auditlog.log_db)
+                        # Откат операции
+                        if flg is False and check_msg not in msg:
+                            _, _ = receiver.deposit(receiver_sum)
+
                 if check_Type == 'apply_monthly_interest':
                     flg, msg = receiver.apply_monthly_interest()
+                    flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                      check_receiver,
+                                                                                      self.auditlog.log_db)
                 if check_Type == 'deposit_securities' and check_security is not None:
                     flg, msg = receiver.deposit_securities(check_security, receiver_sum)
+                    if flg is True or check_msg in msg:
+                        flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                          check_receiver,
+                                                                                          self.auditlog.log_db)
+                        # Откат операции
+                        if flg is False and check_msg not in msg:
+                            _, _ = receiver.withdraw_securities(check_security, receiver_sum)
+
                 if check_Type == 'withdraw_securities' and check_security is not None:
                     flg, msg = receiver.withdraw_securities(check_security, receiver_sum)
+                    if flg is True or check_msg in msg:
+                        flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                          check_receiver,
+                                                                                          self.auditlog.log_db)
+                        # Откат операции
+                        if flg is False and check_msg not in msg:
+                            _, _ = receiver.deposit_securities(check_security, receiver_sum)
+
                 if check_Type == 'project_yearly_growth':
                     flg, msg = receiver.project_yearly_growth(receiver_sum, check_security)
+                    flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                      check_receiver,
+                                                                                      self.auditlog.log_db)
             else:
                 msg = f'Тип операции неопознан. Некорректный метод "{check_Type}".'
-            return flg, msg
+            return flg, msg, risk_token
         # если счет получателя пустой
         elif check_receiver is None:
             sender, sender_bank = self.is_found_acc(check_sender)
@@ -1471,7 +1644,7 @@ class TransactionProcessor:
                 # return f'Cчет отправителя не найден в банковской системе счетов.'
                 msg = f'Cчет отправителя не найден в банковской системе счетов.'
                 # flg = False
-                return flg, msg
+                return flg, msg, risk_token
             # Конвертация валюты
             if sender.currency != check_currency:
                 sender_sum = self.convert(check_currency, sender.currency, check_Sum)
@@ -1487,19 +1660,57 @@ class TransactionProcessor:
                 , 'project_yearly_growth']:
                 if check_Type == 'deposit':
                     flg, msg = sender.deposit(sender_sum)
+                    if flg is True or check_msg in msg:
+                        flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                          check_receiver,
+                                                                                          self.auditlog.log_db)
+                        # Откат операции
+                        if flg is False and check_msg not in msg:
+                            _, _ = sender.withdraw(sender_sum)
+
                 if check_Type == 'withdraw':
                     flg, msg = sender.withdraw(sender_sum)
+                    if flg is True or check_msg in msg:
+                        flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                          check_receiver,
+                                                                                          self.auditlog.log_db)
+                        # Откат операции
+                        if flg is False and check_msg not in msg:
+                            _, _ = sender.deposit(sender_sum)
+
                 if check_Type == 'apply_monthly_interest':
                     flg, msg = sender.apply_monthly_interest()
+                    flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                      check_receiver,
+                                                                                      self.auditlog.log_db)
                 if check_Type == 'deposit_securities' and check_security is not None:
                     flg, msg = sender.deposit_securities(check_security, sender_sum)
+                    if flg is True or check_msg in msg:
+                        flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                          check_receiver,
+                                                                                          self.auditlog.log_db)
+                        # Откат операции
+                        if flg is False and check_msg not in msg:
+                            _, _ = sender.withdraw_securities(check_security, sender_sum)
+
                 if check_Type == 'withdraw_securities' and check_security is not None:
                     flg, msg = sender.withdraw_securities(check_security, sender_sum)
+                    if flg is True or check_msg in msg:
+                        flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                          check_receiver,
+                                                                                          self.auditlog.log_db)
+                        # Откат операции
+                        if flg is False and check_msg not in msg:
+                            _, _ = sender.deposit_securities(check_security, sender_sum)
+
                 if check_Type == 'project_yearly_growth':
                     flg, msg = sender.project_yearly_growth(sender_sum, check_security)
+                    flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
+                                                                                      check_receiver,
+                                                                                      self.auditlog.log_db)
             else:
                 msg = f'Тип операции неопознан. Некорректный метод "{check_Type}".'
-            return flg, msg
+            return flg, msg, risk_token
         # если происходит транзакция между счетами
         else:
             sender, sender_bank = self.is_found_acc(check_sender)
@@ -1535,6 +1746,7 @@ class TransactionProcessor:
                 else:
                     receiver_flg, receiver_msg = receiver.withdraw(receiver_sum)
             elif check_Type == 'withdraw':
+                receiver_flg, receiver_msg = receiver.deposit(receiver_sum)
                 if external_flg is True:
                     if external_currency != sender.currency:
                         external_sum = self.convert(external_currency, sender.currency, external_sum)
@@ -1548,6 +1760,29 @@ class TransactionProcessor:
             if sender_flg and receiver_flg is True:
                 msg = sender_msg + receiver_msg
                 flg = True
+                # Проверка
+                flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(
+                    flg,
+                    msg,
+                    check_sender,
+                    check_receiver,
+                    self.auditlog.log_db
+                )
+                # Откат операции
+                if flg is False:
+                    if check_Type == 'deposit':
+                        _, _ = sender.withdraw(sender_sum)
+                        if external_flg is True:
+                            _, _ = receiver.deposit(receiver_sum + external_sum)
+                        else:
+                            _, _ = receiver.deposit(receiver_sum)
+                    elif check_Type == 'withdraw':
+                        _, _ = receiver.withdraw(receiver_sum)
+                        if external_flg is True:
+                            _, _ = sender.deposit(sender_sum + external_sum)
+                        else:
+                            _, _ = sender.deposit(sender_sum)
+
             # Если транзакция прервалась, вывести статус и код ошибки
             else:
                 # если проблема возникла на стороне отправителя и получателя
@@ -1559,6 +1794,7 @@ class TransactionProcessor:
                     msg = sender_msg
                     flg = sender_flg
                     if check_Type == 'deposit':
+                        sender_flg, sender_msg = sender.deposit(sender_sum)
                         if external_flg is True:
                             receiver.deposit(receiver_sum + external_sum)
                         else:
@@ -1579,7 +1815,7 @@ class TransactionProcessor:
             # === =========================== === #
         else:
             msg = f'Некорректный метод "{check_Type}". Можно выбрать только "withdraw" или "deposit".'
-        return flg, msg
+        return flg, msg, risk_token
 
     # Если время в будущем, возвращаем False, иначе - True
     def check_time(self, time):
@@ -1592,12 +1828,13 @@ class TransactionProcessor:
     # Выполнение транзакции. будет вызывать check_rules и calculate_fee
     def apply_transaction(self):
         start_later_trans = []
+        risk_lvl = None
         # начинаем перебирать отсортированный список транзакций
         for trans in self.current_queue.transaction_list:
             if trans.status == 'CANCELED':
                 trans.description = f'Транзакция не выполнилась из-за ее статуса: {trans.status}.'
                 self.PREVIOUS_RESULT.append(trans)
-                self.make_log(trans)
+                self.make_log(trans, risk_lvl)
             elif trans.status == 'PENDING':
                 # self, ID, sender, receiver, Type, Sum, currency, timestamps = None
                 # Проверка времени старта транзакции
@@ -1605,37 +1842,37 @@ class TransactionProcessor:
                     start_later_trans.append(trans)
                     continue
                 # Проверка правил осуществления транзакций
-                flg, msg = self.check_rules(trans.sender, trans.receiver, trans.Type, trans.Sum, trans.currency,
-                                            trans.security)
+                flg, msg, risk_lvl = self.check_rules(trans.sender, trans.receiver, trans.Type, trans.Sum,
+                                                      trans.currency, trans.security)
                 if flg is False:
                     trans.status = 'FAILED'
                     trans.description = f'Транзакция прервана! ' + str(msg)
                     self.PREVIOUS_RESULT.append(trans)
-                    self.make_log(trans)
+                    self.make_log(trans, risk_lvl)
                     continue
                 trans.status = 'SUCCESS'
                 trans.description = f'Транзакция выполнилась успешно. ' + str(msg)
                 self.PREVIOUS_RESULT.append(trans)
-                self.make_log(trans)
+                self.make_log(trans, risk_lvl)
             else:
                 trans.description = f"""Транзакция не выполнилась из-за ее неверного статуса: "{trans.status}".
                                     Статусы могут принимать значения: '{"', '".join(self.AVAILABLE_STATUS)}'"""
                 self.PREVIOUS_RESULT.append(trans)
-                self.make_log(trans)
+                self.make_log(trans, risk_lvl)
         # начинаем перебирать список отложенных транзакций
         for trans in start_later_trans:
-            flg, msg = self.check_rules(trans.sender, trans.receiver, trans.Type, trans.Sum, trans.currency,
-                                        trans.security)
+            flg, msg, risk_lvl = self.check_rules(trans.sender, trans.receiver, trans.Type, trans.Sum,
+                                                  trans.currency, trans.security)
             if flg is False:
                 trans.status = 'FAILED'
                 trans.description = f'Транзакция прервана! ' + str(msg)
                 self.PREVIOUS_RESULT.append(trans)
-                self.make_log(trans)
+                self.make_log(trans, risk_lvl)
                 continue
             trans.status = 'SUCCESS'
             trans.description = f'Транзакция выполнилась успешно. ' + str(msg)
             self.PREVIOUS_RESULT.append(trans)
-            self.make_log(trans)
+            self.make_log(trans, risk_lvl)
         # Обнуляем очередь
         self.current_queue = TransactionQueue()
 
@@ -1659,8 +1896,6 @@ class TransactionProcessor:
         pass
 
 
-# не забыть про отчеты
-
 # ================================================================ #
 # ========================= Тестирование ========================= #
 # ================================================================ #
@@ -1683,14 +1918,12 @@ new_bank.open_account('InvestmentAccount', 'ccc', 'zxcv', 'RUB')
 print(old_bank.add_client('Петров Петр Петрович', 'poiu', '738923 dj@jd.com', '12.03.2005', 444))
 old_bank.open_account('SavingsAccount', 'mmm', 'poiu', 'RUB')
 
-
-
-
-
 new_processor = TransactionProcessor()
 
 audit_log = AuditLog('AuditLog2')
 new_processor.add_AuditLog(audit_log)
+risk_analyzer = RiskAnalyzer()
+new_processor.add_RiskAnalyzer(risk_analyzer)
 
 new_processor.add_bank(new_bank)
 new_processor.add_bank(old_bank)
@@ -1712,10 +1945,28 @@ new_processor.add_transaction_in_queue('qwer', None, 'qqq',
 #                                        'deposit', 1000, 'RUB')
 # new_processor.add_transaction_in_queue('zxcv', 'qqq', 'ccc',
 #                                        'deposit', 1000, 'RUB')
+new_processor.add_transaction_in_queue('qwer2', None, 'qqq',
+                                       'deposit', 10000, 'RUB')
 new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
                                        'deposit', 10000, 'RUB')
+new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+                                       'deposit', 10000, 'RUB')
+new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+                                       'deposit', 10000, 'RUB')
+new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+                                       'deposit', 10000, 'RUB')
+new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+                                       'deposit', 10000, 'RUB')
+new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+                                       'deposit', 10000, 'RUB')
+new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+                                       'deposit', 10000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer2',  'qqq', 'mmm',
+#                                        'deposit', 100, 'RUB',queue_priority=5)
+new_processor.add_transaction_in_queue('qwer2',  'mmm', 'qqq',
+                                       'deposit', 100, 'RUB',queue_priority=5)
 new_processor.add_transaction_in_queue('qwer3', 'qqq', 'mmm',
-                                       'deposit', 2, 'USD')
+                                       'withdraw', 2, 'USD')
 # new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
 #                                        'deposit', 10000, 'RUB', queue_priority=4)
 # new_processor.add_transaction_in_queue('qwer3', 'qqq', 'mmm',
@@ -1723,6 +1974,16 @@ new_processor.add_transaction_in_queue('qwer3', 'qqq', 'mmm',
 # new_processor.set_transaction_to_cancel('zxcv')
 new_processor.apply_transaction()
 new_processor.__str__()
+
+print(audit_log.summary_audit())
+
+# 'severity', 'Type', 'trans_id', 'sender_client_id', 'receiver_client_id'
+# audit_log.filtration('zzz')
+audit_log.filtration('severity')
+# audit_log.filtration('Type')
+# audit_log.filtration('Type')
+# audit_log.filtration('Type')
+
 
 # new_bank.search_accounts('qqq')
 # old_bank.search_accounts('mmm')
