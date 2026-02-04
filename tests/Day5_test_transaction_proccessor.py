@@ -2,7 +2,7 @@ import abc
 import datetime
 import random  # для генерации UUID
 import string  # для генерации UUID
-from datetime import datetime, time  # для проверки временных промежутков
+from datetime import datetime, time, timedelta  # для проверки временных промежутков
 from abc import ABC, abstractmethod  # Импортируем необходимые модули для создания абстрактного класса
 
 
@@ -22,6 +22,8 @@ from bank import (
     # , Transaction     # класс транзакции
     # , TransactionQueue    # класс очереди транзакции
     , TransactionProcessor  # класс транзакционного процессора
+    , AuditLog  # класс Аудита
+    , RiskAnalyzer  # класс Анализатора риска
 )
 
 
@@ -47,6 +49,12 @@ def test_transaction_proccessor():
     old_bank.open_account('SavingsAccount', 'mmm', 'poiu', 'RUB')
     # Создание транзакционного процессора
     new_processor = TransactionProcessor()
+    # Добавление модуля аудита к транзакционному процессору
+    audit_log = AuditLog('AuditLog_Day5_1')
+    new_processor.add_AuditLog(audit_log)
+    # Добавление модуля анализа риска к транзакционному процессору
+    risk_analyzer = RiskAnalyzer()
+    new_processor.add_RiskAnalyzer(risk_analyzer)
     # Добавление банков в работу процессора
     new_processor.add_bank(new_bank)
     new_processor.add_bank(old_bank)
@@ -87,11 +95,14 @@ def test_transaction_proccessor():
     # Запуск очереди транзакций
     new_processor.apply_transaction()
 
+    # Работа Аудита
+    print(audit_log.summary_audit())
+
     # Команды для проверки статуса счета (можно вставлять до запуска очереди транзакций и после)
     # new_bank.search_accounts('qqq')
     # new_bank.search_accounts('www')
     # new_bank.search_accounts('sss')
-    new_bank.search_accounts('ссс')
+    # new_bank.search_accounts('ссс')
     # old_bank.search_accounts('mmm')
 
     # Информация по работе транзакционного процессора
