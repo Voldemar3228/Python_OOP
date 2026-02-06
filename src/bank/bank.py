@@ -109,7 +109,7 @@ class BankAccount(AbstractAccount, ABC):
 
     # Успех - True, провал - False + причина в reason
     def validate_operation(self, amount=None, oper_type=None, acc=None):
-        if type(amount) is not int:
+        if type(amount) is not int and type(amount) is not float:
             error = InvalidOperationError(amount)
             reason = error.get_reason()
             return False, reason
@@ -1325,7 +1325,10 @@ class TransactionProcessor:
         if curr_trans.sender is not None:
             # Получение счета и Банка отправителя по ID счета отправителя
             get_sender_acc, get_sender_Bank = self.is_found_acc(curr_trans.sender)
-            get_sender_acc_id = get_sender_acc.Id
+            if get_sender_acc is not None:
+                get_sender_acc_id = get_sender_acc.Id
+            else:
+                raise ValueError(f'Счет не найден в банковский системах!')
             # Получение ID клиента по ID счета отправителя
             get_sender_client_id, _ = get_sender_Bank.get_client_id(curr_trans.sender)
         else:
