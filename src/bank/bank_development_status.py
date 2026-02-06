@@ -6,7 +6,7 @@ from datetime import datetime, time, timedelta  # для проверки вре
 from abc import ABC, abstractmethod  # Импортируем необходимые модули для создания абстрактного класса
 import csv
 import json
-
+import matplotlib.pyplot as plt
 
 # ==================================================================================================================== #
 # =====================================================  Day 1  ====================================================== #
@@ -105,8 +105,8 @@ class BankAccount(AbstractAccount, ABC):
     SUSPICIOUS_SUM = 300000  # Проверка на подозрительные действия, сумма денег
     SUSPICIOUS_TIME_START = time(5, 0)  # Проверка на подозрительные действия, время начала (5 утра)
     SUSPICIOUS_TIME_END = time(6, 0)  # Проверка на подозрительные действия, время конца (6 утра)
-    FORBIDDEN_TIME_START = time(0, 0)  # Запрет транзакций, время начала (00:00 полночь)
-    FORBIDDEN_TIME_END = time(5, 0)  # Запрет транзакций, время конца (5 утра)
+    FORBIDDEN_TIME_START = time(5, 0)  # Запрет транзакций, время начала (00:00 полночь)
+    FORBIDDEN_TIME_END = time(6, 0)  # Запрет транзакций, время конца (5 утра)
 
     def __init__(self, Id, person, secure_balance, status, currency):
         super().__init__(Id, person, secure_balance, status)
@@ -1122,6 +1122,7 @@ class AuditLog:
         # self.severity = severity  # уровень важности (INFO / WARNING / ERROR)
         self.file_name = file_name + '.txt'
         self.log_db = []
+        self.risk_dict = {}
         with open(self.file_name, 'w', encoding='utf-8') as f:
             f.write('Структура логов:\n')
             f.write('Уровень важности, ID транзакции, Уровень риска транзакции, Результат выполнения транзакции, Банк отправителя, ID отправителя, ID счета отправителя, \
@@ -1143,7 +1144,7 @@ class AuditLog:
     # Запись лога в файл
     def write_to_file(self, curr_log: Log):
         with open(self.file_name, 'a', encoding='utf-8') as f:
-            f.write(curr_log.log_info())
+            f.write(curr_log.log_info() + "\n")
         pass
 
     # Фильтрация логов (по уровню, типу события, tx_id, client_id)
@@ -1165,7 +1166,6 @@ class AuditLog:
     def summary_audit(self):
         counter_risk = 0
         counter_fail = 0
-        risk_dict = {}
         msg = ''
 
         for log in self.log_db:
@@ -1174,10 +1174,10 @@ class AuditLog:
                 counter_risk += 1
                 # Риск-профиль клиентов
                 if log.risk_lvl == 'HIGH':
-                    if log.sender_client_id not in risk_dict.keys():
-                        risk_dict[log.sender_client_id] = 1
+                    if log.sender_client_id not in self.risk_dict.keys():
+                        self.risk_dict[log.sender_client_id] = 1
                     else:
-                        risk_dict[log.sender_client_id] += 1
+                        self.risk_dict[log.sender_client_id] += 1
             # Падение транзакций операции
             if log.trans_status == 'FAILED':
                 counter_fail += 1
@@ -1187,7 +1187,7 @@ class AuditLog:
 Количество падений транзакций: {counter_fail} / {len(self.log_db)}.  
 Риск-профили клиентов (кол-во рискованных операций): \n"""
         buf = msg
-        for key, value in risk_dict.items():
+        for key, value in self.risk_dict.items():
             msg = msg + f"""  {key} : {value}"""
         if buf == msg:
             msg = msg + f"    Рискованных операций не найдено!"
@@ -1287,64 +1287,6 @@ class RiskAnalyzer:
 
     def __str__(self):
         pass
-
-# ==================================================================================================================== #
-# =====================================================  Day 6  ====================================================== #
-# ==================================================================================================================== #
-
-class ReportBuilder:
-    def __init__(self, curr_audit:AuditLog):
-        self.audit = curr_audit
-
-        with open("report.csv", 'w', encoding='utf-8') as f:
-            pass
-
-        with open("report.json", 'w', encoding='utf-8') as f:
-            pass
-
-        with open("report.txt", 'w', encoding='utf-8') as f:
-            pass
-
-    def build_report(self):
-        self.build_csv()
-        self.build_json()
-        self.build_txt()
-        pass
-
-    def build_txt(self, filename="report.txt"):
-        for curr_log in self.audit.log_db:
-            with open(filename, "a", encoding="utf-8") as f:
-                f.write(curr_log.log_info() + "\n")
-        pass
-
-    def build_json(self, filename="report.json"):
-        # with open(filename, "a", newline="", encoding="utf-8") as f:
-        #     f.write("[\n")
-        for curr_log in self.audit.log_db:
-            line = curr_log.log_info()
-            values = line.split(", ")
-            with open(filename, "a", encoding="utf-8") as f:
-                # f.write("    " + json.dumps(values, ensure_ascii=False, indent=8) + ",\n")
-                f.write(json.dumps(values, ensure_ascii=False) + "\n")
-        # with open(filename, "a", newline="", encoding="utf-8") as f:
-        #     f.write("    ]\n")
-        pass
-
-    def build_csv(self, filename="report.csv"):
-        for curr_log in self.audit.log_db:
-            line = curr_log.log_info()
-            values = line.split(", ")
-            with open(filename, "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(values)
-            pass
-
-    def __str__(self):
-        pass
-
-# ==================================================================================================================== #
-# =====================================================   END   ====================================================== #
-# ==================================================================================================================== #
 
 
 # ==================================================================================================================== #
@@ -1927,59 +1869,275 @@ class TransactionProcessor:
             print("     Очередь еще ни разу не запускалась. \n")
         pass
 
+# ==================================================================================================================== #
+# =====================================================  Day 6  ====================================================== #
+# ==================================================================================================================== #
+
+class ReportBuilder:
+    def __init__(self, curr_processor:TransactionProcessor):
+        self.audit = curr_processor.auditlog
+        self.bank_list = curr_processor.bank_list
+        self.line = []
+        self.risk_dict = self.audit.risk_dict
+
+
+    def clear_reports(self):
+        with open("report.csv", 'w', encoding='utf-8') as f:
+            pass
+
+        with open("report.json", 'w', encoding='utf-8') as f:
+            pass
+
+    def bank_report(self):
+        # Подготовка текстового файла
+        with open("report.txt", 'w', encoding='utf-8') as f:
+            f.write("Банк, Кол-во клиентов, Общий баланс, Кол-во транзакций\n")
+            pass
+        # Очистка файлов отчетов
+        self.clear_reports()
+        # Создание строки для записи в файл
+        for curr_bank in self.bank_list:
+            # Имя банка
+            name = curr_bank.name
+            # Общий баланс банка
+            total_balance = curr_bank.get_total_balance()
+            # Кол-во клиентов банка
+            client_count = 0
+            for _ in curr_bank.client_db:
+                client_count += 1
+            # Кол-во транзакций банка
+            trans_count = 0
+            for curr_log in self.audit.log_db:
+                if curr_log.sender_Bank is not None and curr_log.sender_Bank == name:
+                    trans_count += 1
+            # Банк, Кол-во клиентов, Общий баланс, Кол-во транзакций
+            self.line = [name, client_count, total_balance, trans_count]
+            # Построение отчетов
+            self.build_report()
+        pass
+
+    def client_report(self):
+        # Подготовка текстового файла
+        with open("report.txt", 'w', encoding='utf-8') as f:
+            f.write("Клиент, Счёт, Баланс, Последняя транзакция\n")
+            pass
+        # Очистка файлов отчетов
+        self.clear_reports()
+        # Создание строки для записи в файл
+        for curr_bank in self.bank_list:
+            for client_card in curr_bank.client_db:
+                # ID клиента
+                client_id = client_card.client.client_id
+                for curr_acc in client_card.accounts:
+                    # ID счета
+                    acc_id = curr_acc.Id
+                    # Баланс счета
+                    acc_balance = curr_acc.secure_balance
+                    # Последняя транзакция
+                    last_trans = None
+                    for curr_log in self.audit.log_db:
+                        if curr_log.sender_acc is not None and curr_log.sender_acc == acc_id:
+                            last_trans = curr_log.timestamps.strftime("%Y-%m-%d")
+                    # Клиент, Счет, Баланс, Последняя транзакция
+                    self.line = [client_id, acc_id, acc_balance, last_trans]
+                    # Построение отчетов
+                    self.build_report()
+
+        pass
+
+    def risk_report(self):
+        # Подготовка текстового файла
+        with open("report.txt", 'w', encoding='utf-8') as f:
+            f.write("Клиент, Сумма, Дата, Статус\n")
+            pass
+        # Очистка файлов отчетов
+        self.clear_reports()
+        self.audit.summary_audit()
+        # Создание строки для записи в файл
+        for key, value in self.risk_dict.items():
+            risk_client_id = key
+            for curr_log in self.audit.log_db:
+                if curr_log.risk_lvl == 'HIGH':
+                    risk_status = curr_log.risk_lvl
+                    # risk_summa = 444
+                    # risk_date = curr_log.timestamps.strftime("%Y-%m-%d")
+                    if curr_log.sender_client_id is not None and curr_log.sender_client_id == key:
+                        risk_summa = curr_log.Sum
+                        risk_date = curr_log.timestamps.strftime("%Y-%m-%d")
+                    elif curr_log.reciever_client_id == key:
+                        risk_summa = curr_log.Sum
+                        risk_date = curr_log.timestamps.strftime("%Y-%m-%d")
+                    # Клиент, Сумма, Дата, Статус
+                    self.line = [risk_client_id, risk_summa, risk_date, risk_status]
+                    # Построение отчетов
+                    self.build_report()
+
+        pass
+
+    def build_report(self):
+        self.build_csv()
+        self.build_json()
+        self.build_txt()
+        pass
+
+    def build_txt(self, filename="report.txt"):
+        # # Запись лога в текстовый файл
+        # for curr_log in self.audit.log_db:
+        #     with open(filename, "a", encoding="utf-8") as f:
+        #         f.write(curr_log.log_info() + "\n")
+        with open(filename, "a", encoding="utf-8") as f:
+            for item in self.line:
+                f.write(str(item) + ", ")
+            f.write("\n")
+        pass
+
+    def build_json(self, filename="report.json"):
+        # # Запись лога в файл json
+        # for curr_log in self.audit.log_db:
+        #     line = curr_log.log_info()
+        #     values = line.split(", ")
+        #     with open(filename, "a", encoding="utf-8") as f:
+        #         f.write(json.dumps(values, ensure_ascii=False) + "\n")
+        with open(filename, "a", encoding="utf-8") as f:
+            f.write(json.dumps(self.line, ensure_ascii=False) + "\n")
+        pass
+
+    def build_csv(self, filename="report.csv"):
+        # # Запись лога в файл csv
+        # for curr_log in self.audit.log_db:
+        #     line = curr_log.log_info()
+        #     values = line.split(", ")
+        #     with open(filename, "a", newline="", encoding="utf-8") as f:
+        #         writer = csv.writer(f)
+        #         writer.writerow(values)
+        with open(filename, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(self.line)
+            pass
+
+    def save_charts(self):
+        pass
+
+    def __str__(self):
+        pass
+
+# ==================================================================================================================== #
+# =====================================================   END   ====================================================== #
+# ==================================================================================================================== #
 
 # ================================================================ #
 # ========================= Тестирование ========================= #
 # ================================================================ #
+# # Создание Банка
+# new_bank = Bank('Новый банк')
+# old_bank = Bank('Старый банк')
+# # Создание клиентов
+# print(new_bank.add_client('Сидоров Сан Саныч', 'qwer', '738923 dj@jd.com', '12.03.2005', 111))
+# print(new_bank.add_client('Иванов Иван Иванович', 'asdf', '738923 dj@jd.com', '12.03.2005', 222))
+# print(new_bank.add_client('Петров Петр Петрович', 'zxcv', '738923 dj@jd.com', '12.03.2005', 333))
+# # Открытие счетов для 'qwer'
+# new_bank.open_account('SavingsAccount', 'qqq', 'qwer', 'RUB')
+# new_bank.open_account('SavingsAccount', 'www', 'qwer', 'RUB')
+# # Открытие счетов для 'asdf'.
+# new_bank.open_account('PremiumAccount', 'sss', 'asdf', 'RUB')
+# # Открытие счетов для 'zxcv'.
+# new_bank.open_account('InvestmentAccount', 'ccc', 'zxcv', 'RUB')
+# #
+# #
+# print(old_bank.add_client('Петров Петр Петрович', 'poiu', '738923 dj@jd.com', '12.03.2005', 444))
+# old_bank.open_account('SavingsAccount', 'mmm', 'poiu', 'RUB')
+#
+# new_processor = TransactionProcessor()
+#
+# audit_log = AuditLog('AuditLog2')
+# new_processor.add_AuditLog(audit_log)
+# risk_analyzer = RiskAnalyzer()
+# new_processor.add_RiskAnalyzer(risk_analyzer)
+#
+# new_processor.add_bank(new_bank)
+# new_processor.add_bank(old_bank)
+# # new_bank.search_accounts('qqq')
+# # new_bank.search_accounts('www')
+# new_bank.search_accounts('mmm')
+# old_bank.search_accounts('mmm')
+# # new_processor.add_transaction_in_queue('qwer', None, 'qqq',
+# #                                        'deposit', 1000, 'RUB', queue_priority=5)
+# new_processor.add_transaction_in_queue('qwer', None, 'qqq',
+#                                        'deposit', 1000, 'RUB')
+# # new_processor.add_transaction_in_queue('qwer2', 'qqq', 'www',
+# #                                        'withdraw', 1, 'USD', "20.12.2026")
+# # new_processor.add_transaction_in_queue('qwer3', 'ccc', None,
+# #                                        'deposit', 1, 'USD', "etf", "20.12.2026")
+# # new_processor.add_transaction_in_queue('qwer4', 'ccc', None,
+# #                                        'deposit_securities', 1, 'USD', "etf", "20.12.2026")
+# # new_processor.add_transaction_in_queue('asd', 'qqq', 'sss',
+# #                                        'deposit', 1000, 'RUB')
+# # new_processor.add_transaction_in_queue('zxcv', 'qqq', 'ccc',
+# #                                        'deposit', 1000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer1', None, 'qqq',
+#                                        'deposit', 10000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+#                                        'deposit', 10000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer3', None, 'mmm',
+#                                        'deposit', 10000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer4', None, 'mmm',
+#                                        'deposit', 10000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer5', None, 'mmm',
+#                                        'deposit', 10000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer6', None, 'mmm',
+#                                        'deposit', 10000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer7', None, 'mmm',
+#                                        'deposit', 10000, 'RUB')
+# new_processor.add_transaction_in_queue('qwer8', None, 'mmm',
+#                                        'deposit', 10000, 'RUB')
+# # new_processor.add_transaction_in_queue('qwer2',  'qqq', 'mmm',
+# #                                        'deposit', 100, 'RUB',queue_priority=5)
+# new_processor.add_transaction_in_queue('qwer9',  'mmm', 'qqq',
+#                                        'deposit', 100, 'RUB',queue_priority=5)
+# new_processor.add_transaction_in_queue('qwer10', 'qqq', 'mmm',
+#                                        'withdraw', 2, 'USD')
+# # new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+# #                                        'deposit', 10000, 'RUB', queue_priority=4)
+# # new_processor.add_transaction_in_queue('qwer3', 'qqq', 'mmm',
+# #                                        'deposit', 2, 'USD', queue_priority=1)
+# # new_processor.set_transaction_to_cancel('zxcv')
+# new_processor.apply_transaction()
+# new_processor.__str__()
+
 # Создание Банка
 new_bank = Bank('Новый банк')
 old_bank = Bank('Старый банк')
-# Создание клиентов
+# Создание клиентов:
+#   - нового банка
 print(new_bank.add_client('Сидоров Сан Саныч', 'qwer', '738923 dj@jd.com', '12.03.2005', 111))
 print(new_bank.add_client('Иванов Иван Иванович', 'asdf', '738923 dj@jd.com', '12.03.2005', 222))
 print(new_bank.add_client('Петров Петр Петрович', 'zxcv', '738923 dj@jd.com', '12.03.2005', 333))
-# Открытие счетов для 'qwer'
+#   - старого банка
+print(old_bank.add_client('Петров Петр Петрович', 'poiu', '738923 dj@jd.com', '12.03.2005', 444))
+# Открытие счетов для 'qwer' (новый банк)
 new_bank.open_account('SavingsAccount', 'qqq', 'qwer', 'RUB')
 new_bank.open_account('SavingsAccount', 'www', 'qwer', 'RUB')
-# Открытие счетов для 'asdf'.
+# Открытие счетов для 'asdf'. (новый банк)
 new_bank.open_account('PremiumAccount', 'sss', 'asdf', 'RUB')
-# Открытие счетов для 'zxcv'.
+# Открытие счетов для 'zxcv'. (новый банк)
 new_bank.open_account('InvestmentAccount', 'ccc', 'zxcv', 'RUB')
-#
-#
-print(old_bank.add_client('Петров Петр Петрович', 'poiu', '738923 dj@jd.com', '12.03.2005', 444))
+# Открытие счетов для 'poiu' (старый банк)
 old_bank.open_account('SavingsAccount', 'mmm', 'poiu', 'RUB')
-
+# Создание транзакционного процессора
 new_processor = TransactionProcessor()
-
-audit_log = AuditLog('AuditLog2')
+# Добавление модуля аудита к транзакционному процессору
+audit_log = AuditLog('AuditLog_Day5_2')
 new_processor.add_AuditLog(audit_log)
+# Добавление модуля анализа риска к транзакционному процессору
 risk_analyzer = RiskAnalyzer()
 new_processor.add_RiskAnalyzer(risk_analyzer)
-
+# Добавление банков в работу процессора
 new_processor.add_bank(new_bank)
 new_processor.add_bank(old_bank)
-# new_bank.search_accounts('qqq')
-# new_bank.search_accounts('www')
-new_bank.search_accounts('mmm')
-old_bank.search_accounts('mmm')
-# new_processor.add_transaction_in_queue('qwer', None, 'qqq',
-#                                        'deposit', 1000, 'RUB', queue_priority=5)
+# Создание очереди транзакций
 new_processor.add_transaction_in_queue('qwer', None, 'qqq',
                                        'deposit', 1000, 'RUB')
-# new_processor.add_transaction_in_queue('qwer2', 'qqq', 'www',
-#                                        'withdraw', 1, 'USD', "20.12.2026")
-# new_processor.add_transaction_in_queue('qwer3', 'ccc', None,
-#                                        'deposit', 1, 'USD', "etf", "20.12.2026")
-# new_processor.add_transaction_in_queue('qwer4', 'ccc', None,
-#                                        'deposit_securities', 1, 'USD', "etf", "20.12.2026")
-# new_processor.add_transaction_in_queue('asd', 'qqq', 'sss',
-#                                        'deposit', 1000, 'RUB')
-# new_processor.add_transaction_in_queue('zxcv', 'qqq', 'ccc',
-#                                        'deposit', 1000, 'RUB')
-new_processor.add_transaction_in_queue('qwer1', None, 'qqq',
-                                       'deposit', 10000, 'RUB')
-new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
+new_processor.add_transaction_in_queue('qwer2', None, 'qqq',
                                        'deposit', 10000, 'RUB')
 new_processor.add_transaction_in_queue('qwer3', None, 'mmm',
                                        'deposit', 10000, 'RUB')
@@ -1993,21 +2151,19 @@ new_processor.add_transaction_in_queue('qwer7', None, 'mmm',
                                        'deposit', 10000, 'RUB')
 new_processor.add_transaction_in_queue('qwer8', None, 'mmm',
                                        'deposit', 10000, 'RUB')
-# new_processor.add_transaction_in_queue('qwer2',  'qqq', 'mmm',
-#                                        'deposit', 100, 'RUB',queue_priority=5)
-new_processor.add_transaction_in_queue('qwer9',  'mmm', 'qqq',
-                                       'deposit', 100, 'RUB',queue_priority=5)
-new_processor.add_transaction_in_queue('qwer10', 'qqq', 'mmm',
+new_processor.add_transaction_in_queue('qwer9', None, 'mmm',
+                                       'deposit', 10000, 'RUB')
+new_processor.add_transaction_in_queue('qwer10', 'mmm', 'qqq',
+                                       'deposit', 100, 'RUB', queue_priority=5)
+new_processor.add_transaction_in_queue('qwer11', 'qqq', 'mmm',
                                        'withdraw', 2, 'USD')
-# new_processor.add_transaction_in_queue('qwer2', None, 'mmm',
-#                                        'deposit', 10000, 'RUB', queue_priority=4)
-# new_processor.add_transaction_in_queue('qwer3', 'qqq', 'mmm',
-#                                        'deposit', 2, 'USD', queue_priority=1)
-# new_processor.set_transaction_to_cancel('zxcv')
+# Запуск очереди транзакций
 new_processor.apply_transaction()
-new_processor.__str__()
-reportBuilder = ReportBuilder(audit_log)
-reportBuilder.build_report()
+
+reportBuilder = ReportBuilder(new_processor)
+# reportBuilder.bank_report()
+# reportBuilder.client_report()
+reportBuilder.risk_report()
 
 # print(audit_log.summary_audit())
 # audit_log.filtration('severity')
@@ -2018,10 +2174,6 @@ reportBuilder.build_report()
 # audit_log.filtration('Type')
 # audit_log.filtration('Type')
 # audit_log.filtration('Type')
-
-
-reportBuilder = ReportBuilder(audit_log)
-reportBuilder.build_report()
 
 
 
