@@ -4,6 +4,9 @@ import random  # для генерации UUID
 import string  # для генерации UUID
 from datetime import datetime, time, timedelta  # для проверки временных промежутков
 from abc import ABC, abstractmethod  # Импортируем необходимые модули для создания абстрактного класса
+import csv
+import json
+import matplotlib.pyplot as plt
 from .errors import (
     AccountFrozenError
     , AccountClosedError
@@ -38,8 +41,8 @@ class BankAccount(AbstractAccount, ABC):
     SUSPICIOUS_SUM = 300000  # Проверка на подозрительные действия, сумма денег
     SUSPICIOUS_TIME_START = time(5, 0)  # Проверка на подозрительные действия, время начала (5 утра)
     SUSPICIOUS_TIME_END = time(6, 0)  # Проверка на подозрительные действия, время конца (6 утра)
-    FORBIDDEN_TIME_START = time(0, 0)  # Запрет транзакций, время начала (00:00 полночь)
-    FORBIDDEN_TIME_END = time(5, 0)  # Запрет транзакций, время конца (5 утра)
+    FORBIDDEN_TIME_START = time(6, 0)  # Запрет транзакций, время начала (00:00 полночь)
+    FORBIDDEN_TIME_END = time(6, 10)  # Запрет транзакций, время конца (5 утра)
 
     def __init__(self, Id, person, secure_balance, status, currency):
         super().__init__(Id, person, secure_balance, status)
@@ -1039,7 +1042,7 @@ class Log:
     def log_info(self):
         result = f"""{self.severity}, {self.trans_id}, {self.risk_lvl}, {self.trans_status}, {self.sender_Bank}, {self.sender_client_id}, {self.sender_acc}, \
 {self.Type}, {self.receiver_Bank}, {self.receiver_client_id}, {self.receiver_acc}, {self.Sum}, \
-{self.currency}, {self.timestamps}, {self.description} \n"""
+{self.currency}, {self.timestamps}, {self.description}"""
         return result
 
     def __str__(self):
@@ -1054,6 +1057,7 @@ class AuditLog:
         # self.severity = severity  # уровень важности (INFO / WARNING / ERROR)
         self.file_name = file_name + '.txt'
         self.log_db = []
+        self.risk_dict = {}
         with open(self.file_name, 'w', encoding='utf-8') as f:
             f.write('Структура логов:\n')
             f.write('Уровень важности, ID транзакции, Уровень риска транзакции, Результат выполнения транзакции, Банк отправителя, ID отправителя, ID счета отправителя, \
@@ -1075,7 +1079,7 @@ class AuditLog:
     # Запись лога в файл
     def write_to_file(self, curr_log: Log):
         with open(self.file_name, 'a', encoding='utf-8') as f:
-            f.write(curr_log.log_info())
+            f.write(curr_log.log_info() + '\n')
         pass
 
     # Фильтрация логов (по уровню, типу события, tx_id, client_id)
@@ -1097,7 +1101,6 @@ class AuditLog:
     def summary_audit(self):
         counter_risk = 0
         counter_fail = 0
-        risk_dict = {}
         msg = ''
 
         for log in self.log_db:
@@ -1106,10 +1109,10 @@ class AuditLog:
                 counter_risk += 1
                 # Риск-профиль клиентов
                 if log.risk_lvl == 'HIGH':
-                    if log.sender_client_id not in risk_dict.keys():
-                        risk_dict[log.sender_client_id] = 1
+                    if log.sender_client_id not in self.risk_dict.keys():
+                        self.risk_dict[log.sender_client_id] = 1
                     else:
-                        risk_dict[log.sender_client_id] += 1
+                        self.risk_dict[log.sender_client_id] += 1
             # Падение транзакций операции
             if log.trans_status == 'FAILED':
                 counter_fail += 1
@@ -1119,7 +1122,7 @@ class AuditLog:
 Количество падений транзакций: {counter_fail} / {len(self.log_db)}.  
 Риск-профили клиентов (кол-во рискованных операций): \n"""
         buf = msg
-        for key, value in risk_dict.items():
+        for key, value in self.risk_dict.items():
             msg = msg + f"""  "{key}" : {value}"""
         if buf == msg:
             msg = msg + f"    Рискованных операций не найдено!"
@@ -1173,7 +1176,7 @@ class RiskAnalyzer:
         for log in curr_auditlog:
             log_time = log.timestamps
             if type(log_time) == str:
-                log_time = datetime.strptime(log_time, "%d.%m.%Y")
+                log_time = datetime.strptime(log_time, "%Y-%m-%d")
             if log.sender_acc is None:
                 if entered_sender is None:
                     if log.receiver_acc == entered_reciever and log_time >= start:
@@ -1219,11 +1222,6 @@ class RiskAnalyzer:
 
     def __str__(self):
         pass
-
-
-# ==================================================================================================================== #
-# =====================================================   END   ====================================================== #
-# ==================================================================================================================== #
 
 
 # ==================================================================================================================== #
@@ -1731,7 +1729,7 @@ class TransactionProcessor:
     # Если время в будущем, возвращаем False, иначе - True
     def check_time(self, time):
         if type(time) == str:
-            time = datetime.strptime(time, '%d.%m.%Y')
+            time = datetime.strptime(time, "%Y-%m-%d")
         if time > datetime.now():
             return False
         return True
@@ -1804,4 +1802,257 @@ class TransactionProcessor:
             buf += 1
         if buf == 1:
             print("     Очередь еще ни разу не запускалась. \n")
+        pass
+
+# ==================================================================================================================== #
+# =====================================================  Day 6  ====================================================== #
+# ==================================================================================================================== #
+
+class ReportBuilder:
+    def __init__(self, curr_processor:TransactionProcessor):
+        self.audit = curr_processor.auditlog
+        self.bank_list = curr_processor.bank_list
+        self.line = []
+        self.risk_dict = self.audit.risk_dict
+
+
+    def clear_reports(self):
+        # with open("report.csv", 'w', encoding='utf-8') as f:
+        #     pass
+
+        with open("report.json", 'w', encoding='utf-8') as f:
+            pass
+
+    def bank_report(self):
+        # Подготовка текстового файла
+        with open("report.txt", 'w', encoding='utf-8') as f:
+            f.write("Банк, Кол-во клиентов, Общий баланс, Кол-во транзакций\n")
+            pass
+        # Подготовка файла csv
+        with open("report.csv", 'w', encoding='utf-8') as f:
+            f.write("Банк,Кол-во клиентов,Общий баланс,Кол-во транзакций\n")
+            pass
+        # Очистка файлов отчетов
+        self.clear_reports()
+        # Создание строки для записи в файл
+        for curr_bank in self.bank_list:
+            # Имя банка
+            name = curr_bank.name
+            # Общий баланс банка
+            total_balance = curr_bank.get_total_balance()
+            # Кол-во клиентов банка
+            client_count = 0
+            for _ in curr_bank.client_db:
+                client_count += 1
+            # Кол-во транзакций банка
+            trans_count = 0
+            for curr_log in self.audit.log_db:
+                if curr_log.sender_Bank is not None and curr_log.sender_Bank == name:
+                    trans_count += 1
+            # Банк, Кол-во клиентов, Общий баланс, Кол-во транзакций
+            self.line = [name, client_count, total_balance, trans_count]
+            # Построение отчетов
+            self.build_report()
+        # Построение графиков
+        self.save_charts('bank_report')
+        pass
+
+    def client_report(self):
+        # Подготовка текстового файла
+        with open("report.txt", 'w', encoding='utf-8') as f:
+            f.write("Клиент, Счёт, Баланс, Последняя транзакция\n")
+            pass
+        # Подготовка файла csv
+        with open("report.csv", 'w', encoding='utf-8') as f:
+            f.write("Клиент,Счёт,Баланс,Последняя транзакция\n")
+            pass
+        # Очистка файлов отчетов
+        self.clear_reports()
+        # Создание строки для записи в файл
+        for curr_bank in self.bank_list:
+            for client_card in curr_bank.client_db:
+                # ID клиента
+                client_id = client_card.client.client_id
+                for curr_acc in client_card.accounts:
+                    # ID счета
+                    acc_id = curr_acc.Id
+                    # Баланс счета
+                    acc_balance = curr_acc.secure_balance
+                    # Последняя транзакция
+                    last_trans = None
+                    for curr_log in self.audit.log_db:
+                        if curr_log.sender_acc is not None and curr_log.sender_acc == acc_id:
+                            if (type(curr_log.timestamps) != str):
+                                last_trans = curr_log.timestamps.strftime("%Y-%m-%d")
+                            else:
+                                last_trans = curr_log.timestamps
+                    # Клиент, Счет, Баланс, Последняя транзакция
+                    self.line = [client_id, acc_id, acc_balance, last_trans]
+                    # Построение отчетов
+                    self.build_report()
+        self.save_charts('client_report')
+        pass
+
+    def risk_report(self):
+        # Подготовка текстового файла
+        with open("report.txt", 'w', encoding='utf-8') as f:
+            f.write("Клиент, Сумма, Дата, Статус\n")
+            pass
+        # Подготовка файла csv
+        with open("report.csv", 'w', encoding='utf-8') as f:
+            f.write("Клиент,Сумма,Дата,Статус\n")
+            pass
+        # Очистка файлов отчетов
+        self.clear_reports()
+        self.audit.summary_audit()
+        # Создание строки для записи в файл
+        for key, value in self.risk_dict.items():
+            risk_client_id = key
+            for curr_log in self.audit.log_db:
+                if curr_log.risk_lvl == 'HIGH':
+                    risk_status = curr_log.risk_lvl
+                    # risk_summa = 444
+                    # risk_date = curr_log.timestamps.strftime("%Y-%m-%d")
+                    if curr_log.sender_client_id is not None and curr_log.sender_client_id == key:
+                        risk_summa = curr_log.Sum
+                        if (type(curr_log.timestamps) != str):
+                            risk_date = curr_log.timestamps.strftime("%Y-%m-%d")
+                        else:
+                            risk_date = curr_log.timestamps
+                        # risk_date = curr_log.timestamps.strftime("%Y-%m-%d")
+                    elif curr_log.receiver_client_id == key:
+                        risk_summa = curr_log.Sum
+                        if (type(curr_log.timestamps) != str):
+                            risk_date = curr_log.timestamps.strftime("%Y-%m-%d")
+                        else:
+                            risk_date = curr_log.timestamps
+                        # risk_date = curr_log.timestamps.strftime("%Y-%m-%d")
+                    # Клиент, Сумма, Дата, Статус
+                    self.line = [risk_client_id, risk_summa, risk_date, risk_status]
+                    # Построение отчетов
+                    self.build_report()
+        self.save_charts('risk_report')
+        pass
+
+    def build_report(self):
+        self.build_csv()
+        self.build_json()
+        self.build_txt()
+        pass
+
+    def build_txt(self, filename="report.txt"):
+        # # Запись лога в текстовый файл
+        # for curr_log in self.audit.log_db:
+        #     with open(filename, "a", encoding="utf-8") as f:
+        #         f.write(curr_log.log_info() + "\n")
+        with open(filename, "a", encoding="utf-8") as f:
+            for item in self.line:
+                f.write(str(item) + ", ")
+            f.write("\n")
+        pass
+
+    def build_json(self, filename="report.json"):
+        # # Запись лога в файл json
+        # for curr_log in self.audit.log_db:
+        #     line = curr_log.log_info()
+        #     values = line.split(", ")
+        #     with open(filename, "a", encoding="utf-8") as f:
+        #         f.write(json.dumps(values, ensure_ascii=False) + "\n")
+        with open(filename, "a", encoding="utf-8") as f:
+            f.write(json.dumps(self.line, ensure_ascii=False) + "\n")
+        pass
+
+    def build_csv(self, filename="report.csv"):
+        # # Запись лога в файл csv
+        # for curr_log in self.audit.log_db:
+        #     line = curr_log.log_info()
+        #     values = line.split(", ")
+        #     with open(filename, "a", newline="", encoding="utf-8") as f:
+        #         writer = csv.writer(f)
+        #         writer.writerow(values)
+        with open(filename, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(self.line)
+            pass
+
+    def save_charts(self, command):
+        if command == 'bank_report':
+            # Чтение csv и подготовка данных
+            banks = []
+            total = []
+
+            with open("report.csv", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    banks.append(row["Банк"])
+                    total.append(float(row["Общий баланс"]))  # обязательно float для matplotlib
+
+            # Построение круговой диаграммы
+            plt.figure(figsize=(6, 6))  # размер графика
+            plt.pie(
+                total,
+                labels=banks,  # подписи секторов
+                autopct="%1.1f%%",  # отображение процентов
+                startangle=90,  # поворот диаграммы
+                shadow=True  # добавление тени
+            )
+            plt.title("Распределение средств в банках")
+            # Сохраняем изображение
+            plt.savefig("pie_chart.png")  # формат PNG
+            plt.show()
+
+        if command == 'client_report':
+            # Чтение csv и подготовка данных
+            clients = []
+            summa = []
+
+            with open("report.csv", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    clients.append(row["Счёт"])
+                    summa.append(float(row["Баланс"]))
+
+            # Построение столбчатой диаграммы
+
+            plt.figure(figsize=(8, 5))
+            plt.bar(clients, summa, color='skyblue')  # цвет столбцов
+            plt.title("Баланс счетов>")
+            plt.xlabel("ID счетов")
+            plt.ylabel("Баланс счетов")
+            # Сохраняем изображение
+            plt.savefig("bar_chart.png")  # формат PNG
+            plt.show()
+
+        if command == 'risk_report':
+            # Чтение CSV
+            dates = []
+            summa = []
+
+            with open("report.csv", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # преобразуем строку в дату
+                    dates.append(datetime.strptime(row["Дата"], "%Y-%m-%d"))
+                    summa.append(float(row["Сумма"]))
+
+            # Построение графика
+            plt.figure(figsize=(9, 5))
+            plt.plot(
+                dates,
+                summa,
+                marker="o",  # точки на линии
+                linestyle="-",  # линия
+                color="green"
+            )
+
+            plt.title("Риск-анализ")
+            plt.xlabel("Дата")
+            plt.ylabel("Запрашиваемая сумма")
+            plt.grid(True)
+
+            plt.savefig("risk_analyze_chart.png", dpi=300)
+            plt.show()
+        pass
+
+    def __str__(self):
         pass
