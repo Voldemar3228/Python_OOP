@@ -286,9 +286,12 @@ class SavingsAccount(BankAccount):
         buf = self.min_balance * self.monthly_rate
         self.secure_balance += buf
         self.min_balance = self.secure_balance
-        return f'Средства ({buf} {self.currency}) успешно зачислены на счет "{self.Id}".\n' \
-               f'Текущий баланс: {self.secure_balance}.\n' \
-               f'Минимальный остаток: {self.min_balance}'
+        msg = f"""Средства ({buf} {self.currency}) успешно зачислены на счет "{self.Id}".
+Текущий баланс: {self.secure_balance}. Минимальный остаток: {self.min_balance}"""
+        # return f'Средства ({buf} {self.currency}) успешно зачислены на счет "{self.Id}".\n' \
+        #        f'Текущий баланс: {self.secure_balance}.\n' \
+        #        f'Минимальный остаток: {self.min_balance}'
+        return True, msg
 
     def get_account_info(self):
         super().get_account_info()
@@ -500,7 +503,9 @@ class InvestmentAccount(BankAccount):
         for security in list(self.invest_dict.keys()):
             self.secure_balance += self.invest_dict[security] * self.yearly_growth_rate
             self.invest_dict[security] += self.invest_dict[security] * self.yearly_growth_rate
-        return f'Стоимость портфеля выросла на {self.yearly_growth_rate * 100}% '  # \n
+        msg = f"Стоимость портфеля выросла на {self.yearly_growth_rate * 100}%."
+        # return f'Стоимость портфеля выросла на {self.yearly_growth_rate * 100}% '  # \n
+        return True, msg
 
     def withdraw_securities(self, security, amount):
         flg, msg = super().withdraw(amount, 'withdraw_securities')
@@ -1539,7 +1544,7 @@ class TransactionProcessor:
                             _, _ = receiver.deposit_securities(check_security, receiver_sum)
 
                 if check_Type == 'project_yearly_growth':
-                    flg, msg = receiver.project_yearly_growth(receiver_sum, check_security)
+                    flg, msg = receiver.project_yearly_growth()
                     flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
                                                                                       check_receiver,
                                                                                       self.auditlog.log_db)
@@ -1613,7 +1618,7 @@ class TransactionProcessor:
                             _, _ = sender.deposit_securities(check_security, sender_sum)
 
                 if check_Type == 'project_yearly_growth':
-                    flg, msg = sender.project_yearly_growth(sender_sum, check_security)
+                    flg, msg = sender.project_yearly_growth()
                     flg, msg, risk_token = self.risk_analyser.risk_analyzer_operation(flg, msg, check_sender,
                                                                                       check_receiver,
                                                                                       self.auditlog.log_db)
@@ -1662,7 +1667,6 @@ class TransactionProcessor:
                     sender_flg, sender_msg = sender.withdraw(sender_sum + external_sum)
                 else:
                     sender_flg, sender_msg = sender.withdraw(sender_sum)
-                receiver_flg, receiver_msg = receiver.deposit(receiver_sum)
 
             # === Проверка статуса транзакции === #
             # Если транзакция прошла успешно
